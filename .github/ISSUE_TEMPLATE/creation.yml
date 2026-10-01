@@ -1,40 +1,40 @@
 name: Share a creation
-description: Send project files for a maintainer to add to this repository
+description: Share your creation with a title, creators, description, URL, and screenshot
 title: "[Creation] "
 body:
   - type: markdown
     attributes:
-      value: "All source will be added to this repository. Official entry also requires a comment on the WeDoWind Solutions task."
+      value: "Share the five details below. A maintainer will follow up about source files and licensing before adding your creation to the gallery. Official entry also requires a comment on the WeDoWind Solutions task."
   - type: input
     id: title
     attributes:
-      label: Title and creator or team
+      label: Title
+    validations:
+      required: true
+  - type: input
+    id: creators
+    attributes:
+      label: Creators
+      description: Names of the creators or team to credit.
     validations:
       required: true
   - type: textarea
     id: description
     attributes:
-      label: Short description and public viewing URL
+      label: Description
     validations:
       required: true
-  - type: textarea
-    id: files
+  - type: input
+    id: url
     attributes:
-      label: Source files and reproduction instructions
-      description: Attach a ZIP or link to downloadable files. Include a README and open licence.
+      label: URL
+      description: Public link where people can view your creation.
     validations:
       required: true
   - type: textarea
     id: screenshot
     attributes:
-      label: Screenshot and image description
-      description: Drag in a PNG, JPEG, or WebP screenshot. Describe it for alt text.
-    validations:
-      required: true
-  - type: textarea
-    id: data
-    attributes:
-      label: Live data use and licence
-      description: Name your ACE endpoint, refresh interval, unavailable-data behaviour, and open licence.
+      label: Screenshot
+      description: Drag in a PNG, JPEG, or WebP screenshot that you have permission to share publicly.
     validations:
       required: true

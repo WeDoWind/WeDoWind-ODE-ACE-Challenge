@@ -4,7 +4,15 @@ Thank you for sharing your work. Anyone can submit more than one creation, and t
 
 ## Before you start
 
-Have these ready:
+For the submission form, have these five details ready:
+
+- Title.
+- Creators (names or team to credit).
+- Description.
+- Public viewing URL.
+- Screenshot (PNG, JPEG, or WebP), with permission to share and no private information.
+
+Before a creation is added to the gallery, maintainers also need:
 
 - A short, plain-language title and description (what will visitors see or learn?).
 - A public viewing URL and all source files to include in this repository.
@@ -22,8 +30,8 @@ Link to the [ACE dataset on Zenodo (DOI: 10.5281/zenodo.22662372)](https://doi.o
 
 1. Create a free GitHub account if you do not have one.
 2. Open the [creation submission form](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml).
-3. Fill in every field and attach your screenshot and project ZIP, or link to downloadable project files. Submit it.
-4. A maintainer will check the files, licence, and screenshot, then add the source and gallery entry to this repository. They may ask a question in the issue.
+3. Fill in Title, Creators, Description, and URL, then attach your Screenshot. Submit it.
+4. A maintainer will follow up in the issue for source files, licensing, reproduction instructions, API behaviour, and screenshot alt text, then add the source and gallery entry to this repository once these are ready.
 5. Post your URL, description, and screenshot in the [official WeDoWind Solutions task](https://community.wedowind.ch/posts/open-data-exploration-solutions-107654528).
 
 ## Option B: edit on GitHub
