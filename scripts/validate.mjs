@@ -4,7 +4,8 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const data = JSON.parse(readFileSync(resolve(root, 'site/data/creations.json'), 'utf8'));
 const template = JSON.parse(readFileSync(resolve(root, 'templates/creation.json'), 'utf8'));
-const required = Object.keys(template);
+const optional = ['sourceUrl', 'license', 'dataUse'];
+const required = Object.keys(template).filter(field => !optional.includes(field));
 const errors = [];
 
 if (!Array.isArray(data.creations)) errors.push('creations must be an array');
@@ -15,23 +16,28 @@ else {
     for (const field of required) {
       if (typeof item[field] !== 'string' || !item[field].trim()) errors.push(`${prefix}.${field} is required`);
     }
-    if (Object.keys(item).some(field => !required.includes(field))) errors.push(`${prefix} has an unknown field`);
+    for (const field of optional) {
+      if (field in item && (typeof item[field] !== 'string' || !item[field].trim())) errors.push(`${prefix}.${field} must be a non-empty string when provided`);
+    }
+    if (Object.keys(item).some(field => !Object.keys(template).includes(field))) errors.push(`${prefix} has an unknown field`);
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id ?? '')) errors.push(`${prefix}.id must be lowercase letters, numbers and hyphens`);
     if (ids.has(item.id)) errors.push(`${prefix}.id is duplicated`);
     ids.add(item.id);
-    for (const field of ['viewUrl', 'sourceUrl']) {
+    for (const field of ['viewUrl', ...(item.sourceUrl ? ['sourceUrl'] : [])]) {
       try { if (new URL(item[field]).protocol !== 'https:') throw new Error(); }
       catch { errors.push(`${prefix}.${field} must be a public HTTPS URL`); }
     }
-    const sourcePrefix = 'https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/tree/main/';
-    const sourcePath = typeof item.sourceUrl === 'string' && item.sourceUrl.startsWith(sourcePrefix)
-      ? item.sourceUrl.slice(sourcePrefix.length).replace(/\/$/, '') : '';
-    if (![ `site/creations/${item.id}`, `creations/${item.id}` ].includes(sourcePath)) {
-      errors.push(`${prefix}.sourceUrl must point to this creation's source folder in this repository`);
-    } else {
-      if (!existsSync(resolve(root, sourcePath, 'README.md'))) errors.push(`${prefix} source folder needs README.md`);
-      if (!existsSync(resolve(root, sourcePath, 'LICENSE'))) errors.push(`${prefix} source folder needs LICENSE`);
-      if (sourcePath.startsWith('site/') && !existsSync(resolve(root, sourcePath, 'index.html'))) errors.push(`${prefix} static display needs index.html`);
+    if (item.sourceUrl) {
+      const sourcePrefix = 'https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/tree/main/';
+      const sourcePath = typeof item.sourceUrl === 'string' && item.sourceUrl.startsWith(sourcePrefix)
+        ? item.sourceUrl.slice(sourcePrefix.length).replace(/\/$/, '') : '';
+      if (![ `site/creations/${item.id}`, `creations/${item.id}` ].includes(sourcePath)) {
+        errors.push(`${prefix}.sourceUrl must point to this creation's source folder in this repository`);
+      } else {
+        if (!existsSync(resolve(root, sourcePath, 'README.md'))) errors.push(`${prefix} source folder needs README.md`);
+        if (!existsSync(resolve(root, sourcePath, 'LICENSE'))) errors.push(`${prefix} source folder needs LICENSE`);
+        if (sourcePath.startsWith('site/') && !existsSync(resolve(root, sourcePath, 'index.html'))) errors.push(`${prefix} static display needs index.html`);
+      }
     }
     if (!/^images\/creations\/[a-z0-9-]+\.(png|jpg|jpeg|webp)$/.test(item.image ?? '')) errors.push(`${prefix}.image must be a screenshot path in images/creations`);
     else if (!existsSync(resolve(root, 'site', item.image))) errors.push(`${prefix}.image does not exist`);

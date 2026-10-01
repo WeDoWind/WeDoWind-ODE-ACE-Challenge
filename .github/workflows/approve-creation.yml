@@ -1,0 +1,53 @@
+name: Approve creation
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Submission issue number (without the hash)
+        required: true
+        type: string
+      image_alt:
+        description: Describe the screenshot for people who cannot see it
+        required: true
+        type: string
+      approved:
+        description: I checked the submission, public viewing URL, and screenshot sharing rights
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write
+concurrency:
+  group: approve-creation-${{ inputs.issue }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: inputs.approved && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_NUMBER: ${{ inputs.issue }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Import approved issue
+        run: node scripts/import-issue.mjs
+      - name: Validate gallery
+        run: node scripts/validate.mjs
+      - name: Open publication pull request
+        env:
+          BRANCH: gallery/issue-${{ inputs.issue }}
+        run: |
+          git switch -c "$BRANCH"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add site/data/creations.json site/images/creations/
+          git commit -m "Add gallery creation from issue #$ISSUE_NUMBER"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" --title "Add creation from issue #$ISSUE_NUMBER" --body-file submission-pr.md >> "$GITHUB_STEP_SUMMARY"

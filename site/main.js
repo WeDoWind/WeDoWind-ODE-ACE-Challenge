@@ -26,7 +26,7 @@ function renderCreation(item) {
   heading.textContent = item.title;
   const byline = document.createElement('p');
   byline.className = 'byline';
-  byline.textContent = `By ${item.creator} · ${item.license}`;
+  byline.textContent = `By ${item.creator}${item.license ? ` · ${item.license}` : ''}`;
   const summary = document.createElement('p');
   summary.textContent = item.summary;
   const data = document.createElement('p');
@@ -34,8 +34,11 @@ function renderCreation(item) {
   data.textContent = item.dataUse;
   const links = document.createElement('div');
   links.className = 'card-links';
-  links.append(link(item.viewUrl, 'View display ↗'), link(item.sourceUrl, 'Source & setup ↗'));
-  body.append(heading, byline, summary, data, links);
+  links.append(link(item.viewUrl, 'View display ↗'));
+  if (item.sourceUrl) links.append(link(item.sourceUrl, 'Source & setup ↗'));
+  body.append(heading, byline, summary);
+  if (item.dataUse) body.append(data);
+  body.append(links);
   card.append(body);
   return card;
 }
@@ -54,7 +57,7 @@ fetch('data/creations.json')
       const title = document.createElement('h3');
       title.textContent = 'The first space is yours.';
       const copy = document.createElement('p');
-      copy.textContent = 'The gallery is ready for its first creation. Make a display, share a screenshot and source, and help the next person build on your idea.';
+      copy.textContent = 'The gallery is ready for its first creation. Make a display, share a link and screenshot, and inspire the next person with your idea.';
       empty.append(title, copy, link('https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml', 'Add your creation ↗'));
       gallery.append(empty);
       return;

@@ -8,7 +8,7 @@ A shared library of screen-friendly ideas for [WeDoWind's Open Data Exploration 
 
 ## The essentials
 
-Your display should use [live ACE API data](https://ace-api.duckdns.org/docs), work on a screen, make sense to a non-technical audience, and be shared under an open licence with reproduction instructions. The [existing dashboard](https://ace-api.duckdns.org/dashboard/) and [historical data](https://doi.org/10.5281/zenodo.22662372) may help you explore ideas. Credit ACE for turbine data under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Your display should use [live ACE API data](https://ace-api.duckdns.org/docs), work on a screen, make sense to a non-technical audience, and credit the data it uses. Sharing code is optional; include an open licence and reproduction instructions if you share it. The [existing dashboard](https://ace-api.duckdns.org/dashboard/) and [historical data](https://doi.org/10.5281/zenodo.22662372) may help you explore ideas. Credit ACE for turbine data under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 You can create a dashboard, artwork, interactive display, digital twin, or something else. Technical complexity is not a judging criterion. Build for a community centre screen that may run for hours with little supervision. Explain what happens when the API is delayed or unavailable.
 
@@ -18,11 +18,11 @@ You can create a dashboard, artwork, interactive display, digital twin, or somet
 
 Choose the route that feels easiest:
 
-1. **No Git experience:** Open a [submission issue](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml) with your title, creators, description, viewing URL, and screenshot. A maintainer will follow up for project files and licensing, then add the source and gallery entry. You still need to post your official WeDoWind comment.
+1. **No Git experience:** Open a [submission issue](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml) with your title, creators, description, viewing URL, and screenshot. A maintainer will review the submission and use the [approval workflow](CONTRIBUTING.md#maintainers-approve-a-submission) to prepare the gallery entry. You still need to post your official WeDoWind comment.
 2. **GitHub web editor:** Follow the [step-by-step contribution guide](CONTRIBUTING.md#option-b-edit-on-github). GitHub will create a pull request for review.
 3. **Git or an AI coding agent:** Give it [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md), then ask it to prepare a pull request. It can use the [entry template](templates/creation.json).
 
-Every creation's source belongs in this repository. Put a static website in `site/creations/<slug>/` so Pages can host it. Put a project that needs a server or other tools in `creations/<slug>/`; it may link to a running copy elsewhere. Each gallery entry needs a screenshot, viewing URL, source folder, licence, brief description, and a note on its live ACE data use.
+Each gallery entry needs a title, creators, description, public viewing URL, and screenshot. Source code is optional and can be shared later. If sharing code, put static displays in `site/creations/<id>/` or projects needing other tools in `creations/<id>/`, with a README, licence, reproduction instructions, and ACE attribution.
 
 ## Repository map
 

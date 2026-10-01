@@ -4,7 +4,7 @@ title: "[Creation] "
 body:
   - type: markdown
     attributes:
-      value: "Share the five details below. A maintainer will follow up about source files and licensing before adding your creation to the gallery. Official entry also requires a comment on the WeDoWind Solutions task."
+      value: "Share the five details below. A maintainer will review your submission for the gallery. Source code is optional and can be shared later. Official entry also requires a comment on the WeDoWind Solutions task."
   - type: input
     id: title
     attributes:
