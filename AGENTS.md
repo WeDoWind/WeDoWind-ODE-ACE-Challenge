@@ -7,7 +7,7 @@ This repository is a public library of community-created ACE wind-turbine displa
 1. Read `CONTRIBUTING.md` and use `templates/creation.json` as the schema example.
 2. Add one object to `site/data/creations.json`. Keep entries ordered by title. Use a unique lowercase hyphenated `id`.
 3. Put an appropriately licensed screenshot in `site/images/creations/` and write meaningful `imageAlt` text. Do not use remote images in the gallery.
-4. Use public HTTPS viewing and source URLs. Verify that the linked source explains reproduction, its licence, ACE attribution, and API behaviour. If live verification is unavailable, say so in the pull request.
+4. Include every creation's source in this repository. Use `site/creations/<id>/` for static displays or `creations/<id>/` for projects needing other tools. Each needs a README and licence. Use public HTTPS viewing and source URLs, with `sourceUrl` pointing to the source folder here. Explain reproduction, ACE attribution, and API behaviour. If live verification is unavailable, say so in the pull request.
 5. For a site hosted here, use `site/creations/<id>/index.html`, relative asset paths, and a README in that folder. Pages project sites have a repository path prefix.
 6. Run `node scripts/validate.mjs`. Report the result and any limitation clearly.
 

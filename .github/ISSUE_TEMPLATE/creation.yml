@@ -1,0 +1,40 @@
+name: Share a creation
+description: Send project files for a maintainer to add to this repository
+title: "[Creation] "
+body:
+  - type: markdown
+    attributes:
+      value: "All source will be added to this repository. Official entry also requires a comment on the WeDoWind Solutions task."
+  - type: input
+    id: title
+    attributes:
+      label: Title and creator or team
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Short description and public viewing URL
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Source files and reproduction instructions
+      description: Attach a ZIP or link to downloadable files. Include a README and open licence.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot and image description
+      description: Drag in a PNG, JPEG, or WebP screenshot. Describe it for alt text.
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Live data use and licence
+      description: Name your ACE endpoint, refresh interval, unavailable-data behaviour, and open licence.
+    validations:
+      required: true

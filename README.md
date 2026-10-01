@@ -2,9 +2,9 @@
 
 A shared library of screen-friendly ideas for [WeDoWind's Open Data Exploration Challenge 5](https://community.wedowind.ch/posts/open-data-exploration-challenge-5-ace-public-communication-display). The challenge is to help people in Lawrence Weston understand what the community-owned ACE wind turbine is doing and the value it creates.
 
-**[Browse the creations on GitHub Pages](https://charlieplumley.github.io/WeDoWind-ODE-ACE-Challenge/)** · [Submit a creation](CONTRIBUTING.md) · [Challenge discussion and official entry](https://community.wedowind.ch/posts/open-data-exploration-solutions-107654528)
+**[Browse the creations on GitHub Pages](https://wedowind.github.io/WeDoWind-ODE-ACE-Challenge/)** · [Submit a creation](CONTRIBUTING.md) · [Challenge discussion and official entry](https://community.wedowind.ch/posts/open-data-exploration-solutions-107654528)
 
-> The Pages address above assumes this repository will be published under `charlieplumley`. If a different account or repository name is used, replace the link after publishing.
+> This address applies once the repository is hosted by the WeDoWind organisation and GitHub Pages is enabled.
 
 ## The essentials
 
@@ -18,17 +18,18 @@ You can create a dashboard, artwork, interactive display, digital twin, or somet
 
 Choose the route that feels easiest:
 
-1. **No Git experience:** Open a [new submission issue](../../issues/new?template=creation.yml) and fill in the form. A maintainer can add it to the gallery. You still need to post your official WeDoWind comment.
+1. **No Git experience:** Open a [submission issue](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml) and attach or link to your project files. A maintainer can add the files and gallery entry. You still need to post your official WeDoWind comment.
 2. **GitHub web editor:** Follow the [step-by-step contribution guide](CONTRIBUTING.md#option-b-edit-on-github). GitHub will create a pull request for review.
 3. **Git or an AI coding agent:** Give it [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md), then ask it to prepare a pull request. It can use the [entry template](templates/creation.json).
 
-You can link to a display hosted elsewhere, or put a static website in `site/creations/<slug>/`. Other kinds of project can live in their own repository and be linked from the gallery. Each gallery entry needs a screenshot, viewing URL, source URL, licence, brief description, and a note on its live ACE data use.
+Every creation's source belongs in this repository. Put a static website in `site/creations/<slug>/` so Pages can host it. Put a project that needs a server or other tools in `creations/<slug>/`; it may link to a running copy elsewhere. Each gallery entry needs a screenshot, viewing URL, source folder, licence, brief description, and a note on its live ACE data use.
 
 ## Repository map
 
 | Path | Purpose |
 | --- | --- |
 | [`site/`](site/) | GitHub Pages gallery and optional hosted displays |
+| [`creations/`](creations/) | Source for projects that cannot run as static Pages sites |
 | [`site/data/creations.json`](site/data/creations.json) | Gallery entries |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Human-friendly submission steps |
 | [`AGENTS.md`](AGENTS.md) | Instructions for AI coding agents |
@@ -36,7 +37,7 @@ You can link to a display hosted elsewhere, or put a static website in `site/cre
 
 ## Publish the gallery
 
-After this folder is pushed to a **public** GitHub repository, open **Settings → Pages**. Under **Build and deployment**, choose **GitHub Actions**. The included workflow publishes `site/` on pushes to `main`. The resulting URL appears in the workflow's deployment summary and under Settings → Pages. Update the gallery link at the top of this README if the account or repository name differs. [GitHub's Pages setup guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) has screenshots and current settings.
+After this folder is pushed to a **public** GitHub repository, open **Settings → Pages**. Under **Build and deployment**, choose **GitHub Actions**. The included workflow publishes `site/` on pushes to `main`. The resulting URL appears in the workflow's deployment summary and under Settings → Pages. [GitHub's Pages setup guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) has screenshots and current settings.
 
 The gallery is a static site with no build tool or service account. It does not proxy the ACE API. Hosted creations call ACE directly from visitors' browsers, so their authors should test browser access and provide a clear offline state.
 

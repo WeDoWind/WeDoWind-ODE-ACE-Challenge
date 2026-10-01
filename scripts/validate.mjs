@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve, extname } from 'node:path';
+import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const data = JSON.parse(readFileSync(resolve(root, 'site/data/creations.json'), 'utf8'));
@@ -22,6 +22,16 @@ else {
     for (const field of ['viewUrl', 'sourceUrl']) {
       try { if (new URL(item[field]).protocol !== 'https:') throw new Error(); }
       catch { errors.push(`${prefix}.${field} must be a public HTTPS URL`); }
+    }
+    const sourcePrefix = 'https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/tree/main/';
+    const sourcePath = typeof item.sourceUrl === 'string' && item.sourceUrl.startsWith(sourcePrefix)
+      ? item.sourceUrl.slice(sourcePrefix.length).replace(/\/$/, '') : '';
+    if (![ `site/creations/${item.id}`, `creations/${item.id}` ].includes(sourcePath)) {
+      errors.push(`${prefix}.sourceUrl must point to this creation's source folder in this repository`);
+    } else {
+      if (!existsSync(resolve(root, sourcePath, 'README.md'))) errors.push(`${prefix} source folder needs README.md`);
+      if (!existsSync(resolve(root, sourcePath, 'LICENSE'))) errors.push(`${prefix} source folder needs LICENSE`);
+      if (sourcePath.startsWith('site/') && !existsSync(resolve(root, sourcePath, 'index.html'))) errors.push(`${prefix} static display needs index.html`);
     }
     if (!/^images\/creations\/[a-z0-9-]+\.(png|jpg|jpeg|webp)$/.test(item.image ?? '')) errors.push(`${prefix}.image must be a screenshot path in images/creations`);
     else if (!existsSync(resolve(root, 'site', item.image))) errors.push(`${prefix}.image does not exist`);

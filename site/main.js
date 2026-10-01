@@ -55,7 +55,7 @@ fetch('data/creations.json')
       title.textContent = 'The first space is yours.';
       const copy = document.createElement('p');
       copy.textContent = 'The gallery is ready for its first creation. Make a display, share a screenshot and source, and help the next person build on your idea.';
-      empty.append(title, copy, link('https://github.com/charlieplumley/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml', 'Add your creation ↗'));
+      empty.append(title, copy, link('https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml', 'Add your creation ↗'));
       gallery.append(empty);
       return;
     }
