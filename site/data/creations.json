@@ -11,6 +11,15 @@
       "imageAlt": "ACE Wind Now card with a green turbine illustration, 1,082 kW mean power, 7 m/s mean wind speed, a recent-reading badge and the 1 October 2026, 14:39 BST timestamp.",
       "license": "MIT",
       "dataUse": "Uses ACE wec-1 wecstd latest 60-second mean power and wind speed; refreshes every minute; marks readings over five minutes old stale and retains the last reading if the API is unavailable."
+    },
+    {
+      "id": "issue-3",
+      "title": "My first dashboard",
+      "creator": "Charlie",
+      "summary": "A very basic display just to test the system",
+      "viewUrl": "https://fantasy-timbale-z19vq.ship.place/",
+      "image": "images/creations/issue-3.png",
+      "imageAlt": "A simple dashboard with a wind turbine displayed"
     }
   ]
 }
