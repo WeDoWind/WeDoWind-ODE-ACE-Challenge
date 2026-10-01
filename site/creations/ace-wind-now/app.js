@@ -4,6 +4,8 @@ const ui = Object.fromEntries(['power', 'wind', 'status', 'message', 'timestamp'
 let reading = null;
 let failed = false;
 let pending = false;
+let nextAllowed = -Infinity;
+let failures = 0;
 
 function parseReading(data) {
   const timestamp = data.timestamps?.[0];
@@ -26,22 +28,36 @@ function render() {
   const state = failed ? 'unavailable' : stale ? 'stale' : reading ? 'current' : 'loading';
   ui.status.dataset.state = state;
   ui.status.textContent = { unavailable: 'API unavailable', stale: 'Stale reading', current: 'Recent reading', loading: 'Loading' }[state];
-  ui.message.textContent = failed ? (reading ? 'Could not refresh. Showing the last successful reading; it may be out of date.' : 'No reading available. We will retry automatically in one second.') : stale ? 'This reading is more than one minute old. It does not describe the turbine right now.' : reading ? 'Latest instantaneous signals from the one-second feed. This is not a turbine operating-status report.' : 'Fetching the latest ACE reading…';
+  ui.message.textContent = failed ? (reading ? 'Could not refresh. Showing the last successful reading; it may be out of date.' : 'No reading available. We will retry automatically.') : stale ? 'This reading is more than one minute old. It does not describe the turbine right now.' : reading ? 'Latest instantaneous signals from the one-second feed. This is not a turbine operating-status report.' : 'Fetching the latest ACE reading…';
   ui.power.textContent = reading ? reading.power.toLocaleString('en-GB', { maximumFractionDigits: 0 }) : '—';
   ui.wind.textContent = reading ? reading.wind.toLocaleString('en-GB', { maximumFractionDigits: 1 }) : '—';
   ui.timestamp.textContent = reading ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'long', timeZone: 'Europe/London' }).format(new Date(reading.time)) : 'Not available yet';
   if (reading) ui.timestamp.dateTime = new Date(reading.time).toISOString();
 }
 async function refresh() {
-  if (pending) return;
+  if (pending || performance.now() < nextAllowed) return;
+  nextAllowed = performance.now() + 1000;
   pending = true;
   ui.refresh.disabled = true;
   try {
     const response = await fetch(ENDPOINT, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
-    if (!response.ok) throw new Error('API request failed');
+    if (!response.ok) {
+      if (response.status === 429) {
+        const retry = response.headers.get('Retry-After');
+        const seconds = retry == null ? NaN : Number(retry);
+        const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retry) - Date.now();
+        if (Number.isFinite(delay)) nextAllowed = Math.max(nextAllowed, performance.now() + delay);
+      }
+      throw new Error('API request failed');
+    }
     reading = parseReading(await response.json());
     failed = false;
-  } catch { failed = true; }
+    failures = 0;
+  } catch {
+    failed = true;
+    failures++;
+    nextAllowed = Math.max(nextAllowed, performance.now() + Math.min(60000, 1000 * 2 ** Math.min(failures, 6)));
+  }
   finally { pending = false; ui.refresh.disabled = false; render(); }
 }
 ui.refresh.addEventListener('click', refresh);

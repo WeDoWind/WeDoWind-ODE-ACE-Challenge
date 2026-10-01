@@ -10,3 +10,5 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/validate.mjs
+      - run: node scripts/test-ace-poller.mjs
+      - run: node site/creations/ace-wind-now/test.mjs
