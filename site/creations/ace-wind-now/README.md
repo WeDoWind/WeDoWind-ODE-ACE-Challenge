@@ -1,6 +1,6 @@
 # ACE Wind Now
 
-A dependency-free card showing the ACE turbine's latest 60-second mean active power (kW) and mean wind speed (m/s). The illustration is decorative and does not indicate rotor speed or operating status.
+A dependency-free card showing the ACE turbine's latest instantaneous active power (kW) and wind speed (m/s). The illustration is decorative and does not indicate rotor speed or operating status.
 
 ## Run and reproduce
 
@@ -9,12 +9,12 @@ From the repository root, run `python -m http.server 8000 --directory site`, the
 ## Data and behaviour
 
 - API documentation: https://ace-api.duckdns.org/docs (OpenAPI version 0.7.0 inspected on 1 October 2026).
-- Live endpoint: https://ace-api.duckdns.org/v1/sites/ace/assets/wec-1/data/wecstd/latest?resolution=60s&fields=active_power_mean,wind_speed_mean&limit=1
+- Live endpoint: https://ace-api.duckdns.org/v1/sites/ace/assets/wec-1/data/wec_instantaneous/latest?resolution=1s&fields=wec_active_power,wec_wind_speed&limit=1
 - Access date: 1 October 2026. The endpoint and its public CORS headers were verified.
-- Refresh interval: 60 seconds, matching the API's recommendation for this resolution. Requests time out after 15 seconds; overlapping requests are prevented.
-- The API timestamp is Unix microseconds, converted to milliseconds for display in Europe/London, including daylight saving. Readings older than five minutes are labelled stale; freshness is rechecked every ten seconds.
+- Refresh interval: one second, matching the API's recommendation for this resolution. Requests time out after 15 seconds; overlapping requests are prevented.
+- The API timestamp is Unix microseconds, converted to milliseconds for display in Europe/London, including daylight saving. Readings older than one minute are labelled stale; freshness is rechecked every second, using the oldest of the two per-signal observation timestamps.
 - Missing, non-finite, future-dated (over one minute), or non-good-quality readings are rejected. Fetch errors display an unavailable message and keep any last successful reading with its timestamp. Without a successful reading, values remain blank; no demonstration data is presented as live.
-- Values are API means, rounded only for display. No energy, income, emissions, operating-status, or community-impact calculations are made.
+- Values are instantaneous API signals from the one-second feed, rounded only for display. No energy, income, emissions, operating-status, or community-impact calculations are made.
 
 ## ACE attribution and citation
 
@@ -30,7 +30,7 @@ Code and original inline turbine illustration: MIT, see LICENSE. The gallery scr
 
 Creator credit uses the repository contributor handle `charlie9578`.
 
-The viewing URL becomes available when this branch is merged and GitHub Pages deploys. A gallery pull request is separate from official challenge submission on WeDoWind.
+The display is hosted on the repository’s GitHub Pages site. A gallery pull request is separate from official challenge submission on WeDoWind.
 
 ## Checks
 
