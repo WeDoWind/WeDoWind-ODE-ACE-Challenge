@@ -1,6 +1,18 @@
 {
   "creations": [
     {
+      "id": "ace-wind-now",
+      "title": "ACE Wind Now",
+      "creator": "charlie9578",
+      "summary": "A calm community turbine card showing the latest 60-second mean power and wind speed, with a timestamp and clear stale or unavailable states.",
+      "viewUrl": "https://wedowind.github.io/WeDoWind-ODE-ACE-Challenge/creations/ace-wind-now/",
+      "sourceUrl": "https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/tree/main/site/creations/ace-wind-now",
+      "image": "images/creations/ace-wind-now.png",
+      "imageAlt": "ACE Wind Now card with a green turbine illustration, 1,082 kW mean power, 7 m/s mean wind speed, a recent-reading badge and the 1 October 2026, 14:39 BST timestamp.",
+      "license": "MIT",
+      "dataUse": "Uses ACE wec-1 wecstd latest 60-second mean power and wind speed; refreshes every minute; marks readings over five minutes old stale and retains the last reading if the API is unavailable."
+    },
+    {
       "id": "issue-3",
       "title": "My first dashboard",
       "creator": "Charlie",
