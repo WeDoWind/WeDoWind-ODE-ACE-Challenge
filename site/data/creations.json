@@ -1,3 +1,13 @@
 {
-  "creations": []
+  "creations": [
+    {
+      "id": "issue-3",
+      "title": "My first dashboard",
+      "creator": "Charlie",
+      "summary": "A very basic display just to test the system",
+      "viewUrl": "https://fantasy-timbale-z19vq.ship.place/",
+      "image": "images/creations/issue-3.png",
+      "imageAlt": "A simple dashboard with a wind turbine displayed"
+    }
+  ]
 }
