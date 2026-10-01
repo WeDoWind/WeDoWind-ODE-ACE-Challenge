@@ -1,16 +1,16 @@
 # Add a creation to the library
 
-Anyone can submit more than one creation, and teams are welcome. The gallery lists creations; the [WeDoWind Solutions comment](https://community.wedowind.ch/posts/open-data-exploration-solutions-107654528) is the separate official challenge entry.
+Anyone can submit more than one creation, and teams are welcome. We strongly encourage sharing your source code under an open licence with a README, so others can reproduce, learn from and adapt your work. The gallery lists creations; the [WeDoWind Solutions comment](https://community.wedowind.ch/posts/open-data-exploration-solutions-107654528) is the separate official challenge entry.
 
 ## Option A: use a form; no Git needed
 
 1. Create a free GitHub account if needed.
 2. Open the [creation submission form](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml).
 3. Fill in **Title**, **Creators**, **Description**, and a public viewing **URL**, then attach a **Screenshot** (PNG, JPEG, or WebP). Use a screenshot you have permission to share, without private information.
-4. A maintainer prepares a pull request and reviews the gallery listing there. No source code, source folder, licence file, or technical documentation is required to be listed.
+4. A maintainer prepares a pull request and reviews the gallery listing there. If you have source code ready to share, follow the source instructions below to include it under an open licence.
 5. Post your URL, description, and screenshot in the official WeDoWind Solutions task to enter the challenge.
 
-You can share code separately later if you want others to run or adapt your creation. Never upload API keys or private information.
+Please share your code under an open licence with reproduction instructions wherever possible; you can add it after the initial listing if needed. Never upload API keys or private information.
 
 ## Maintainers: prepare and review a submission
 
@@ -33,7 +33,7 @@ If a run fails, check its log. Invalid fields and existing listings stop the imp
 
 ## Option C: use Git or an AI agent
 
-Fork and clone the repository, make a branch, add your entry and screenshot, run `node scripts/validate.mjs`, push, and open a pull request into `main`. Source code is optional. AI agents should read [`AGENTS.md`](AGENTS.md). The gallery has no package dependencies. Keep your PR focused on your creation folder, screenshot and gallery entry; leave the shared website, workflows and other creations unchanged unless you are specifically proposing maintenance. See the [live ACE data guide](docs/ace-live-data.md) for verified endpoints and a polling starter that limits requests.
+Fork and clone the repository, make a branch, add your entry and screenshot, run `node scripts/validate.mjs`, push, and open a pull request into `main`. Include openly licensed source code and reproduction instructions wherever possible. AI agents should read [`AGENTS.md`](AGENTS.md). The gallery has no package dependencies. Keep your PR focused on your creation folder, screenshot and gallery entry; leave the shared website, workflows and other creations unchanged unless you are specifically proposing maintenance. See the [live ACE data guide](docs/ace-live-data.md) for verified endpoints and a polling starter that limits requests.
 
 ## Sharing code separately
 
