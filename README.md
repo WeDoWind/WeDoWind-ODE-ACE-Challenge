@@ -8,11 +8,11 @@ A shared library of screen-friendly ideas for [WeDoWind's Open Data Exploration 
 
 ## The essentials
 
-Your display should use [live ACE API data](https://ace-api.duckdns.org/docs), work on a screen, make sense to a non-technical audience, and credit the data it uses. Sharing code is optional; include an open licence and reproduction instructions if you share it. The [existing dashboard](https://ace-api.duckdns.org/dashboard/) and [historical data](https://doi.org/10.5281/zenodo.22662372) may help you explore ideas. Credit ACE for turbine data under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Your display should use [live ACE API data](https://ace-api.duckdns.org/docs), work on a screen, make sense to a non-technical audience, and credit the data it uses. We strongly encourage sharing source code under an open licence, with reproduction instructions, so others can learn from and build on your creation. The [existing dashboard](https://ace-api.duckdns.org/dashboard/) and [historical data](https://doi.org/10.5281/zenodo.22662372) may help you explore ideas. Credit ACE for turbine data under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 You can create a dashboard, artwork, interactive display, digital twin, or something else. Technical complexity is not a judging criterion. Build for a community centre screen that may run for hours with little supervision. Explain what happens when the API is delayed or unavailable.
 
-**Official entry:** Add a comment to the [WeDoWind Solutions task](https://community.wedowind.ch/posts/open-data-exploration-solutions-107654528) with a viewing URL, short description, and screenshot. Adding a project here makes it easier for others to find and learn from, but does not replace that comment. The final presentation and vote are on **28 October 2026**.
+**Official entry:** Add a comment to the [WeDoWind Solutions task](https://community.wedowind.ch/posts/open-data-exploration-solutions-107654528) with a viewing URL, short description, and screenshot. Adding a project here makes it easier for others to find and learn from, but does not replace that comment. Sign up on WeDoWind to access the challenge’s weekly calls and discussion board. The final presentation call is on **Wednesday 28 October 2026**: participants and teams pitch their creations, then everyone attending can vote. The solution with the most votes is the **Overall Winner**. Charlie Plumley also presents a **Judge’s Award**, taking the [challenge criteria](https://community.wedowind.ch/posts/open-data-exploration-challenge-5-ace-public-communication-display) into account, and a **Community Contribution Award** for positive engagement and support for others.
 
 ## How to add your creation
 
@@ -22,7 +22,7 @@ Choose the route that feels easiest:
 2. **GitHub web editor:** Follow the [step-by-step contribution guide](CONTRIBUTING.md#option-b-edit-on-github). GitHub will create a pull request for review.
 3. **Git or an AI coding agent:** Give it [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md), then ask it to prepare a pull request. It can use the [entry template](templates/creation.json).
 
-Each gallery entry needs a title, creators, description, public viewing URL, and screenshot. Source code is optional and can be shared later. If sharing code, put static displays in `site/creations/<id>/` or projects needing other tools in `creations/<id>/`, with a README, licence, reproduction instructions, and ACE attribution.
+Each gallery entry needs a title, creators, description, public viewing URL, and screenshot. Please include openly licensed source code and reproduction instructions wherever possible. When sharing code, put static displays in `site/creations/<id>/` or projects needing other tools in `creations/<id>/`, with a README, licence, reproduction instructions, and ACE attribution.
 
 ## Repository map
 
