@@ -18,7 +18,7 @@ You can create a dashboard, artwork, interactive display, digital twin, or somet
 
 Choose the route that feels easiest:
 
-1. **No Git experience:** Open a [submission issue](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml) with your title, creators, description, viewing URL, and screenshot. A maintainer will review the submission and use the [approval workflow](CONTRIBUTING.md#maintainers-approve-a-submission) to prepare the gallery entry. You still need to post your official WeDoWind comment.
+1. **No Git experience:** Open a [submission issue](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml) with your title, creators, description, viewing URL, and screenshot. A maintainer will use the [preparation workflow](CONTRIBUTING.md#maintainers-prepare-and-review-a-submission) to prepare the gallery entry, then review it in the pull request. You still need to post your official WeDoWind comment.
 2. **GitHub web editor:** Follow the [step-by-step contribution guide](CONTRIBUTING.md#option-b-edit-on-github). GitHub will create a pull request for review.
 3. **Git or an AI coding agent:** Give it [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md), then ask it to prepare a pull request. It can use the [entry template](templates/creation.json).
 

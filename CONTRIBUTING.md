@@ -7,19 +7,19 @@ Anyone can submit more than one creation, and teams are welcome. The gallery lis
 1. Create a free GitHub account if needed.
 2. Open the [creation submission form](https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/issues/new?template=creation.yml).
 3. Fill in **Title**, **Creators**, **Description**, and a public viewing **URL**, then attach a **Screenshot** (PNG, JPEG, or WebP). Use a screenshot you have permission to share, without private information.
-4. A maintainer reviews the submission and approves its gallery listing. No source code, source folder, licence file, or technical documentation is required to be listed.
+4. A maintainer prepares a pull request and reviews the gallery listing there. No source code, source folder, licence file, or technical documentation is required to be listed.
 5. Post your URL, description, and screenshot in the official WeDoWind Solutions task to enter the challenge.
 
 You can share code separately later if you want others to run or adapt your creation. Never upload API keys or private information.
 
-## Maintainers: approve a submission
+## Maintainers: prepare and review a submission
 
-1. Check the submission, public viewing URL, and screenshot sharing rights. The issue must use the headings **Title**, **Creators**, **Description**, **URL**, and **Screenshot**. Description must be at most 240 characters; URL must use HTTPS. The screenshot must be uploaded to GitHub and be a PNG, JPEG, or WebP of at most 10 MB. Add these headings to older submissions if needed.
-2. Open **Actions → Approve creation → Run workflow** and choose **main**.
-3. Enter the issue number and a meaningful screenshot description for alt text. Tick the confirmation checkbox and run it. The ID is generated automatically as `issue-<number>`.
-4. The workflow reads the issue, saves the screenshot locally, adds the listing in title order, validates it, and opens a pull request. Review and merge it to publish through GitHub Pages. Merging closes the submission issue. Required pull-request checks may still need approval or a manual run; the approval workflow also validates the listing itself.
+1. The issue must use the headings **Title**, **Creators**, **Description**, **URL**, and **Screenshot**. Description must be at most 240 characters; URL must use HTTPS. The screenshot must be uploaded to GitHub and be a PNG, JPEG, or WebP of at most 10 MB. Add these headings to older submissions if needed.
+2. Open **Actions → Prepare creation PR → Run workflow** and choose **main**.
+3. Enter the issue number and a meaningful screenshot description for alt text. Run it; no preliminary approval checkbox is required. The ID is generated automatically as `issue-<number>`.
+4. The workflow reads the issue, saves the screenshot locally, adds the listing in title order, validates it, and opens a pull request. Review the listing details, public viewing URL, screenshot, and screenshot sharing rights in the pull request, then merge it to publish through GitHub Pages. Merging closes the submission issue. Required pull-request checks may still need approval or a manual run; the preparation workflow also validates the listing itself.
 
-One-time setup: in **Settings → Actions → General → Workflow permissions**, enable **Allow GitHub Actions to create and approve pull requests**. Organisation policy may control this setting. No personal access token is needed. GitHub Pages must be configured as described in the README. The workflow must be pushed to the default branch before it appears in Actions.
+One-time setup: in **Settings → Actions → General → Workflow permissions**, enable **Allow GitHub Actions to create and approve pull requests**. Organisation policy may control this setting. No personal access token is needed. GitHub Pages must be configured as described in the README. Removing the preliminary review does not bypass this GitHub permission: the workflow still needs permission to create a pull request. The workflow must be pushed to the default branch before it appears in Actions.
 
 If a run fails, check its log. Invalid fields and existing listings stop the import. An existing `gallery/issue-<number>` branch stops duplicate pull requests: use the existing pull request, or delete the unmerged branch before retrying. No submitted code is executed.
 

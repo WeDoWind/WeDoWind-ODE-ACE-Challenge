@@ -32,11 +32,30 @@ export function imageExtension(bytes) {
   throw new Error('Screenshot must be PNG, JPEG, or WebP.');
 }
 
+export async function downloadScreenshot(url, fetchImage = fetch) {
+  // GitHub attachments can redirect to GitHub's image storage. Never send the API token.
+  const signal = AbortSignal.timeout(30000);
+  for (let redirects = 0; redirects <= 5; redirects++) {
+    const target = new URL(url);
+    if (target.protocol !== 'https:' || target.username || target.password || target.port || ![
+      'github.com', 'user-images.githubusercontent.com', 'private-user-images.githubusercontent.com',
+      'github-production-user-asset-6210df.s3.amazonaws.com',
+      'github-production-user-asset-6210df.s3.us-east-1.amazonaws.com',
+    ].includes(target.hostname)) throw new Error('Screenshot redirect must stay on approved GitHub image storage.');
+    const response = await fetchImage(target.href, { redirect: 'manual', signal });
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+    const location = response.headers.get('location');
+    await response.body?.cancel();
+    if (!location) throw new Error('Screenshot redirect has no destination.');
+    url = new URL(location, target).href;
+  }
+  throw new Error('Screenshot has too many redirects.');
+}
+
 async function main() {
   const root = resolve(import.meta.dirname, '..');
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const input = event.inputs;
-  if (input.approved !== 'true') throw new Error('Tick the approval checkbox after completing the review.');
   if (!/^[1-9]\d*$/.test(input.issue)) throw new Error('Issue number must be a positive integer.');
   const id = `issue-${input.issue}`;
   if (!input.image_alt?.trim()) throw new Error('Describe the screenshot for alt text.');
@@ -46,12 +65,12 @@ async function main() {
   const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/issues/${input.issue}`, {
     headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json' },
     signal: AbortSignal.timeout(30000),
-  });
+  }).catch(error => { throw new Error('Cannot read submission issue from GitHub', { cause: error }); });
   if (!response.ok) throw new Error(`Cannot read issue: HTTP ${response.status}`);
   const issue = await response.json();
   if (issue.pull_request || issue.state !== 'open') throw new Error('Choose an open submission issue, not a pull request.');
   const { screenshot, ...fields } = parseIssue(issue.body ?? '');
-  const downloaded = await fetch(screenshot, { redirect: 'error', signal: AbortSignal.timeout(30000) });
+  const downloaded = await downloadScreenshot(screenshot).catch(error => { throw new Error(`Cannot download screenshot: ${error.message}`, { cause: error.cause ?? error }); });
   if (!downloaded.ok) throw new Error(`Cannot download screenshot: HTTP ${downloaded.status}`);
   const chunks = [];
   let size = 0;
@@ -67,9 +86,9 @@ async function main() {
   data.creations.push({ id, ...fields, image, imageAlt: input.image_alt.trim() });
   data.creations.sort((a, b) => a.title.localeCompare(b.title));
   writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
-  writeFileSync(resolve(root, 'submission-pr.md'), `Adds the reviewed creation from #${input.issue}.\n\nThe approval workflow imported the issue details and screenshot and ran the gallery validator. Review the listing before merging. The maintainer checked the viewing URL and screenshot sharing rights. Source code is optional and can be shared separately later.\n\nCloses #${input.issue}.\n`);
+  writeFileSync(resolve(root, 'submission-pr.md'), `Prepares the creation from #${input.issue}.\n\nThe preparation workflow imported the issue details and screenshot and ran the gallery validator. Before merging, review the title, creator credits, description, and screenshot; check that the viewing URL works without login and confirm screenshot sharing rights. No human review has been recorded by this workflow. Source code is optional and can be shared separately later.\n\nCloses #${input.issue}.\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch(error => { console.error(error.message); process.exitCode = 1; });
+  main().catch(error => { console.error(`Import failed: ${error.message}${error.cause ? ` (${error.cause.message})` : ''}`); process.exitCode = 1; });
 }
