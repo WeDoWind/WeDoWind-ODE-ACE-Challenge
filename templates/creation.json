@@ -1,0 +1,12 @@
+{
+  "id": "my-display",
+  "title": "My display",
+  "creator": "Your name or team",
+  "summary": "A sentence that explains what visitors see and why it matters.",
+  "viewUrl": "https://example.com/my-display",
+  "sourceUrl": "https://github.com/owner/my-display",
+  "image": "images/creations/my-display.png",
+  "imageAlt": "Describe what is visible in the screenshot.",
+  "license": "MIT",
+  "dataUse": "Uses live ACE data from [name the endpoint]; refreshes every [interval]; shows [fallback] if unavailable."
+}
