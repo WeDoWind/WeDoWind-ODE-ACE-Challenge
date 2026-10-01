@@ -14,3 +14,5 @@ This repository is a public library of community-created ACE wind-turbine displa
 Do not invent API fields, energy calculations, community impact figures, or endorsements. Inspect the current [ACE API docs](https://ace-api.duckdns.org/docs) when implementing a display. Show timestamps and a clear stale or unavailable state. Never commit secrets, personal information, or assets without sharing rights.
 
 The official challenge submission is a separate comment on WeDoWind; do not claim a gallery pull request enters the challenge.
+
+Include the [ACE dataset DOI: 10.5281/zenodo.22662372](https://doi.org/10.5281/zenodo.22662372) in each creation's README. Use citation metadata from the Zenodo record when available; do not invent authors or a dataset title. Document the live API endpoint and access date as well.

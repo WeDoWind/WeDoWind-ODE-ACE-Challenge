@@ -14,6 +14,10 @@ Have these ready:
 
 If your display needs a server, special hardware, credentials, or a paid service, mention that in its own README. Never commit API keys or personal data.
 
+## Cite the ACE dataset
+
+Link to the [ACE dataset on Zenodo (DOI: 10.5281/zenodo.22662372)](https://doi.org/10.5281/zenodo.22662372) in your project README and cite it in works using the dataset. Use the citation provided on the Zenodo record, or its citation export. Credit ACE in the display and document your live API endpoint and access date. The data is shared under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## Option A: use a form; no Git needed
 
 1. Create a free GitHub account if you do not have one.

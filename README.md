@@ -43,4 +43,6 @@ The gallery is a static site with no build tool or service account. It does not 
 
 ## Licences and credit
 
+**Cite the ACE dataset:** [Zenodo record — DOI: 10.5281/zenodo.22662372](https://doi.org/10.5281/zenodo.22662372). Use the citation supplied by the record's **Cite as** section, or export it in your preferred format. Include it in your creation's README and any publications or presentations using the dataset. Also credit ACE in your display; for live data, document the API endpoint and access date.
+
 Repository gallery code is [MIT licensed](LICENSE). Repository text and gallery metadata are [CC BY 4.0](LICENSE-DOCS.md). Each creation keeps the licence stated by its author; listing a project here does not relicense it. ACE turbine data is provided under CC BY 4.0; include attribution in your display and project documentation. Screenshots and other third-party assets must have permission for public sharing.
