@@ -33,7 +33,7 @@ If a run fails, check its log. Invalid fields and existing listings stop the imp
 
 ## Option C: use Git or an AI agent
 
-Fork and clone the repository, make a branch, add your entry and screenshot, run `node scripts/validate.mjs`, push, and open a pull request into `main`. Source code is optional. AI agents should read [`AGENTS.md`](AGENTS.md). The gallery has no package dependencies.
+Fork and clone the repository, make a branch, add your entry and screenshot, run `node scripts/validate.mjs`, push, and open a pull request into `main`. Source code is optional. AI agents should read [`AGENTS.md`](AGENTS.md). The gallery has no package dependencies. Keep your PR focused on your creation folder, screenshot and gallery entry; leave the shared website, workflows and other creations unchanged unless you are specifically proposing maintenance. See the [live ACE data guide](docs/ace-live-data.md) for verified endpoints and a polling starter that limits requests.
 
 ## Sharing code separately
 
