@@ -1,0 +1,47 @@
+# Turbine Vortex
+
+A dependency-free living canvas artwork by charlie9578. Fly through a luminous tunnel shaped by measured rotor speed, wind speed, power and wind-vane angle. Cross-sections remember the conditions that formed them, grow towards the viewer, and pass beyond the screen. Stable main mappings help viewers learn to read the turbine through the artwork. All code, styling and assets belong to this folder; no build, keys or paid services are required.
+
+## Reproduce
+
+From the repository root run `python -m http.server 8000`, then open <http://localhost:8000/site/creations/turbine-vortex/>. To test the Pages path prefix, serve the repository's parent directory and visit `/WeDoWind-ODE-ACE-Challenge/site/creations/turbine-vortex/`. The deployed Pages URL omits `site/`: <https://wedowind.github.io/WeDoWind-ODE-ACE-Challenge/creations/turbine-vortex/>. It becomes available only after upstream merge and Pages deployment.
+
+Pause motion freezes travel, history and trails while leaving live readings updating. Reduced-motion preferences start the artwork paused; Resume motion explicitly opts in. **Immerse** fills the screen; controls fade after six idle seconds and return with movement, touch or keyboard input. Keyboard focus keeps controls visible. Connection status stays visible, and stale/unavailable warnings retain their observation date. Hidden pages stop animation and polling. The optional **Read the wind** guide pairs visual meanings with live markers and labelled scales.
+
+## Live data contract
+
+Docs, OpenAPI, `/v1/sites`, `/v1/sites/ace/assets`, `/v1/families` and a live combined response verified on **13 October 2026**. Site `ace`, asset `wec-1`, family `wec_instantaneous`, resolution `1s`:
+
+<https://ace-api.duckdns.org/v1/sites/ace/assets/wec-1/data/wec_instantaneous/latest?resolution=1s&fields=wec_rotor_speed,wec_wind_speed,wec_active_power,wec_wind_direction&limit=1>
+
+- `wec_rotor_speed`: rpm; `wec_wind_speed`: m/s; `wec_active_power`: kW; `wec_wind_direction`: degrees, native OPC node `Vane`. The catalogue and four-signal live response were rechecked on 13 October 2026. Signed vane angles are valid; a live response included -11.6 degrees. The catalogue does not specify its geographic reference, so the artwork makes no geographic compass claim.
+- One shared, completion-based request every **2 seconds**, above the catalogue's 1-second minimum. Manual refresh shares the cooldown; no overlap. A 15-second timeout, exponential failure backoff up to 60 seconds, and HTTP 429 `Retry-After` apply. Separate visitors/tabs each generate their own traffic.
+- Metadata was checked during development and is not repeatedly fetched by visitors. All four fields are requested together with `limit=1`.
+- Each field must be finite with case-insensitive `Good` quality and a valid `series_observed_at` Unix microsecond timestamp, converted to milliseconds. Nulls, missing fields, invalid quality, timestamps over 5 seconds in the future and regressing observations are rejected. Negative wind/RPM are rejected; signed power and vane angles remain visible. Valid zero is preserved. If the direction signal fails or is stale, the artwork rests rather than inventing a heading.
+- **60 seconds** is the chosen stale threshold for the oldest signal, not a server guarantee. Individual local observation times and the oldest full date are visible. Stale readings stay labelled; malformed/offline/error responses retain last valid numbers with an unavailable warning. Without valid data, numbers remain dashes. The vortex becomes a still, subdued neutral form. No demo fallback.
+
+## Artistic mapping and adaptive scale
+
+Rotor angular velocity is `RPM × 2π/60 × 0.65`, capped at 30 RPM as an artistic comfort bound. Rotation eases towards the measured speed with a 2.5-second time constant. Zero RPM stops rotation; artistic forward travel can continue when all signals are fresh.
+
+The main meanings stay stable across visits: wind travel uses `clamp(wind/15)` and power uses `clamp(power/4200)`. Fifteen m/s is an artistic scale ceiling, not a rated turbine limit. The 4200 kW value is the nominal turbine power documented in the API introduction. Negative power remains visible but maps to the zero-generation colour. Wind and power each also use five minutes of fresh, distinct observations for small detail accents. Their 10th–90th percentile ranges resist spikes; the range adapts with a 30-second time constant and minimum spans of **1.5 m/s** and **250 kW**. Adaptive power changes ring hue by at most ±6 degrees; adaptive wind adds only 0.015–0.04 of secondary wall ripple. It does not remap the main flight speed, palette, brightness or streak density. Duplicate observations do not overweight the history. No historical API request is made. Targets ease over 2.5 seconds.
+
+Wind controls wall ripple amplitude and camera speed `0.4 + 1.2 × clamp(wind/15)` in artistic depth units per second. Fixed power colour uses `sqrt(clamp(power/4200))` to move from hue 280 (violet) to 190 (cyan) to 40 (gold), revealing detail at low output without adapting the main meaning. The guide labels 0, 250, 1000, 2500 and 4200 kW on that same scale. Brightness is `0.24 + 0.55 × sqrt(clamp(power/4200))`; higher power also creates more bright streaks, so power is encoded by density as well as colour. These mappings express conditions rather than simulate physics or energy totals.
+
+Vane direction is wrapped to [-180,180) for rendering, with an eight-second time constant and shortest-arc easing across wraparound. Each layer remembers its angle. Sine/cosine project it onto a bounded screen bend, strongest in the distance; historical bends travel towards the viewer. Screen-up/left/right are artistic orientations, not geographic bearings. No nacelle angle or unverified compass transformation is inferred.
+
+`tunnel.mjs` keeps an in-memory sequence of cross-sections. Every 0.65 seconds of active animation a new layer stores the smoothed wind, power, vane angle, brightness, detail accents, rotor-driven twist and current observation time. Those attributes remain attached to it as it approaches the viewer. Perspective expansion makes layers and bright beads pass out of the frame. Thirty-two twisting wall filaments join them into a continuous tunnel. Wind-dependent travel yields roughly **17–69 seconds of active visual history**; old layers are discarded and storage is capped at 140 layers. Startup geometry is initialized together from the first live state, not a fabricated historical feed. History then develops from readings received during this visit, without extra API requests or persistent storage.
+
+The canvas uses frame-rate-independent exponential fading with a 0.26-second time constant, leaving visible phosphor-like echoes for about 1.2 seconds. Rendering is capped at 30fps, with geometry reused across rings and wall filaments and device-pixel ratio capped at two. This limits raster work during long sessions; actual frame rate depends on hardware. Pause stops both layer movement and trail decay. Stale/unavailable data draws a still subdued tunnel; recovery resumes the retained layers. Resizing clears pixel trails but retains layer history. No external images or rendering libraries are used.
+
+## Attribution and licence
+
+Data: Ambition Community Energy (ACE), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Citation verified against Zenodo metadata accessed 13 October 2026:
+
+Plumley, Charlie; Garrad, Andrew; Burke, Wilf; Jonsson, Christian; Smirthwaite, Andrew (2026). *ACE Wind Turbine Data* (version 2026.09). Zenodo. Concept DOI: [10.5281/zenodo.22662372](https://doi.org/10.5281/zenodo.22662372).
+
+Code and original canvas artwork/screenshot: MIT, see `LICENSE`. The poller is copied from the repository's `templates/ace-live.mjs`, with a conservative 60-second cooldown when a 429 response's `Retry-After` is missing or inaccessible through CORS. Readable numeric/date headers are honoured even when longer than 60 seconds. No third-party image assets or fonts.
+
+## Validation
+
+Run `node scripts/validate.mjs` from the repository root and `node --test site/creations/turbine-vortex/signals.test.mjs site/creations/turbine-vortex/poller.test.mjs site/creations/turbine-vortex/tunnel.test.mjs` for signal, adaptive-range, poller and history-retention checks, including simulated hour-long calm and strong-wind sessions, signed direction/wraparound and stable visual meanings. Optional browser QA uses `python site/creations/turbine-vortex/browser-check.py` (install developer-only `playwright` and its Chromium browser first). It starts and stops a temporary local server, checks the repository prefix, widths from 320px to desktop, quiet immersion controls, keyboard focus, pause/reduced motion, live readings, stale/invalid/offline responses, recovery, refresh cooldown and exposed `Retry-After`, and updates the gallery screenshot using actual live readings. Mock readings are used only in tests, never as a production fallback. All checks passed on 13 October 2026, including live browser access. The gallery listing is separate from the official WeDoWind challenge comment.

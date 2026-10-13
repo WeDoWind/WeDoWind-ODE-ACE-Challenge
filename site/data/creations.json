@@ -20,6 +20,18 @@
       "viewUrl": "https://fantasy-timbale-z19vq.ship.place/",
       "image": "images/creations/issue-3.png",
       "imageAlt": "A simple dashboard with a wind turbine displayed"
+    },
+    {
+      "id": "turbine-vortex",
+      "title": "Turbine Vortex",
+      "creator": "charlie9578",
+      "summary": "Learn to read the turbine in a living tunnel: wind sets the pace, power colours and fills the light, RPM twists it, and wind-vane angle bends its path. Layers remember recent conditions as they travel past you.",
+      "viewUrl": "https://wedowind.github.io/WeDoWind-ODE-ACE-Challenge/creations/turbine-vortex/",
+      "sourceUrl": "https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/tree/main/site/creations/turbine-vortex",
+      "image": "images/creations/turbine-vortex.png",
+      "imageAlt": "Turbine Vortex with a glowing wind-steered tunnel, four measured signals including signed wind-vane angle, and a Read the wind guide showing fixed wind-speed and power colour scales.",
+      "license": "MIT",
+      "dataUse": "Uses ACE wec-1 instantaneous 1s rotor speed, wind speed, power and wind-vane angle together every two seconds; fixed main meanings with five-minute adaptive detail; rests with labelled readings after 60 seconds or failures."
     }
   ]
 }
