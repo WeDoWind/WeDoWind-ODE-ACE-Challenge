@@ -20,6 +20,18 @@
       "viewUrl": "https://fantasy-timbale-z19vq.ship.place/",
       "image": "images/creations/issue-3.png",
       "imageAlt": "A simple dashboard with a wind turbine displayed"
+    },
+    {
+      "id": "turbine-vortex",
+      "title": "Turbine Vortex",
+      "creator": "charlie9578",
+      "summary": "A living vortex of luminous trails: measured rotor RPM drives the swirl, wind shapes soft pulses, and power colours the light. Slowly adapting scales reveal changes within recent turbine conditions.",
+      "viewUrl": "https://wedowind.github.io/WeDoWind-ODE-ACE-Challenge/creations/turbine-vortex/",
+      "sourceUrl": "https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/tree/main/site/creations/turbine-vortex",
+      "image": "images/creations/turbine-vortex.png",
+      "imageAlt": "Turbine Vortex artwork with luminous cyan spiral filaments on a dark background, measured rotor RPM, wind speed and power, and live observation status and motion controls.",
+      "license": "MIT",
+      "dataUse": "Uses ACE wec-1 instantaneous 1s rotor speed, wind and power together every two seconds; adapts to five minutes of fresh observations; rests with labelled stale/unavailable readings after 60 seconds or failures."
     }
   ]
 }
