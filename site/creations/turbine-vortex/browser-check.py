@@ -94,6 +94,12 @@ def run():
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=15000)
         assert requests[before] - limited_at >= 4.9, f'Retry-After gap={requests[before] - limited_at:.3f}, gaps={[round(b-a,3) for a,b in zip(requests,requests[1:])]}'
         assert all(b - a >= 1.9 for a, b in zip(requests, requests[1:])), 'Requests too close'
+        page.locator('#fullscreen').click()
+        page.wait_for_function('document.fullscreenElement !== null')
+        assert page.locator('.artwork').evaluate('el => Math.abs(el.getBoundingClientRect().height - innerHeight) < 2')
+        page.screenshot(path=str(Path(tempfile.gettempdir()) / 'turbine-vortex-immersive-check.png'))
+        page.locator('#fullscreen').click()
+        page.wait_for_function('document.fullscreenElement === null')
         page.set_viewport_size({'width': 390, 'height': 844})
         page.wait_for_timeout(300)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile overflow'
@@ -109,14 +115,14 @@ def run():
         live.on('pageerror', lambda error: errors.append(str(error)))
         live.goto(url)
         live.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=30000)
-        live.wait_for_timeout(5000)
+        live.wait_for_timeout(8000)
         live.screenshot(path=str(ROOT / 'site/images/creations/turbine-vortex.png'), full_page=True)
         print('Live browser readings:', live.locator('.readings').inner_text())
         print('Screenshot:', ROOT / 'site/images/creations/turbine-vortex.png')
         assert not errors, errors
         browser.close()
     server.shutdown()
-    print('PASS: prefix, live, narrow screen, focus, pause, reduced motion, zero, stale, invalid, offline, recovery, cooldown, Retry-After')
+    print('PASS: prefix, live, immersion, narrow screen, focus, pause, reduced motion, zero, stale, invalid, offline, recovery, cooldown, Retry-After')
 
 if __name__ == '__main__':
     run()

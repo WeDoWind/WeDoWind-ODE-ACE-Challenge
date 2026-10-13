@@ -1,12 +1,12 @@
 # Turbine Vortex
 
-A dependency-free living canvas artwork by charlie9578. Measured rotor speed drives luminous spiral rotation, wind speed shapes outward pulses, and power colours the light. All code, styling and assets belong to this folder; no build, keys or paid services are required.
+A dependency-free living canvas artwork by charlie9578. Fly through a luminous tunnel shaped by measured rotor speed, wind and power. Cross-sections remember the conditions that formed them, grow towards the viewer, and pass beyond the screen. All code, styling and assets belong to this folder; no build, keys or paid services are required.
 
 ## Reproduce
 
 From the repository root run `python -m http.server 8000`, then open <http://localhost:8000/site/creations/turbine-vortex/>. To test the Pages path prefix, serve the repository's parent directory and visit `/WeDoWind-ODE-ACE-Challenge/site/creations/turbine-vortex/`. The deployed Pages URL omits `site/`: <https://wedowind.github.io/WeDoWind-ODE-ACE-Challenge/creations/turbine-vortex/>. It becomes available only after upstream merge and Pages deployment.
 
-Pause motion leaves live readings updating. Reduced-motion preferences start the artwork paused; Resume motion explicitly opts in. Fullscreen is optional. Hidden pages stop animation and polling.
+Pause motion freezes travel, history and trails while leaving live readings updating. Reduced-motion preferences start the artwork paused; Resume motion explicitly opts in. **Immerse** fills the screen with the tunnel, with readings and controls overlaid below it. Hidden pages stop animation and polling.
 
 ## Live data contract
 
@@ -22,11 +22,15 @@ Docs, OpenAPI, `/v1/sites`, `/v1/sites/ace/assets`, `/v1/families` and a live co
 
 ## Artistic mapping and adaptive scale
 
-Rotor angular velocity is `RPM × 2π/60 × 0.55`, capped at 30 RPM as an artistic comfort bound. Rotation eases towards the measured speed with a 2.5-second time constant, including a transition to stillness at zero.
+Rotor angular velocity is `RPM × 2π/60 × 0.65`, capped at 30 RPM as an artistic comfort bound. Rotation eases towards the measured speed with a 2.5-second time constant. Zero RPM stops rotation; artistic forward travel can continue when all signals are fresh.
 
 Wind and power each use five minutes of fresh, distinct observations collected since opening the page. Their 10th–90th percentile ranges resist spikes. The range centre/span adapt with a 30-second time constant. Minimum spans are **1.5 m/s** and **250 kW**; constant values map to the centre, not an extreme. Duplicate observations do not overweight the history. There is no historical API request. Normalized targets are clamped and eased over 2.5 seconds.
 
-Wind sets pulse rate (0.09–0.25 cycles/second) and amplitude; zero wind stops pulses. Adaptive power sets a violet → cyan → gold palette. Absolute power adds brightness using `0.22 + 0.6 × sqrt(clamp(power/4200))`; the API introduction documents the turbine's 4.2 MW nominal power. These mappings express conditions rather than simulate turbine physics or energy totals.
+Wind controls the rippling wall deformation and forward camera speed. Adaptive power sets a violet → cyan → gold palette. Absolute power adds brightness using `0.4 + 0.5 × sqrt(clamp(power/4200))`; the API introduction documents the turbine's 4.2 MW nominal power. These mappings express conditions rather than simulate turbine physics or energy totals. Forward travel is an artistic effect, not a claim about actual turbine movement or wind distance.
+
+`tunnel.mjs` keeps an in-memory sequence of cross-sections. Every 0.48 seconds of active animation a new layer stores the smoothed wind, power, brightness, rotor-driven twist and current observation time. Those attributes remain attached to it as it approaches the viewer. Perspective expansion makes layers and bright beads pass out of the frame. Thirty-two twisting wall filaments join them into a continuous tunnel. Wind-dependent travel yields roughly **21–42 seconds of active visual history**; old layers are discarded and storage is capped at 110 layers. Startup geometry is initialized together from the first live state, not a fabricated historical feed. History then develops from readings received during this visit, without extra API requests or persistent storage.
+
+The canvas uses frame-rate-independent exponential fading with a 0.32-second time constant, leaving visible phosphor-like echoes for about 1.5 seconds. Pause stops both layer movement and trail decay. Stale/unavailable data draws a still subdued tunnel; recovery resumes the retained layers. Resizing clears pixel trails but retains layer history. No external images or rendering libraries are used.
 
 ## Attribution and licence
 
@@ -38,4 +42,4 @@ Code and original canvas artwork/screenshot: MIT, see `LICENSE`. The poller is c
 
 ## Validation
 
-Run `node scripts/validate.mjs` from the repository root and `node --test site/creations/turbine-vortex/signals.test.mjs site/creations/turbine-vortex/poller.test.mjs` for signal, adaptive-range and poller checks. Optional browser QA uses `python site/creations/turbine-vortex/browser-check.py` (install developer-only `playwright` and its Chromium browser first). It starts and stops a temporary local server, checks the repository prefix, desktop/mobile, keyboard focus, pause/reduced motion, live readings, stale/invalid/offline responses, recovery, refresh cooldown and exposed `Retry-After`, and updates the gallery screenshot using actual live readings. Mock readings are used only in tests, never as a production fallback. All checks passed on 13 October 2026, including live browser access. The gallery listing is separate from the official WeDoWind challenge comment.
+Run `node scripts/validate.mjs` from the repository root and `node --test site/creations/turbine-vortex/signals.test.mjs site/creations/turbine-vortex/poller.test.mjs site/creations/turbine-vortex/tunnel.test.mjs` for signal, adaptive-range, poller and history-retention checks, including a simulated hour of bounded layer storage. Optional browser QA uses `python site/creations/turbine-vortex/browser-check.py` (install developer-only `playwright` and its Chromium browser first). It starts and stops a temporary local server, checks the repository prefix, desktop/mobile, immersion, keyboard focus, pause/reduced motion, live readings, stale/invalid/offline responses, recovery, refresh cooldown and exposed `Retry-After`, and updates the gallery screenshot using actual live readings. Mock readings are used only in tests, never as a production fallback. All checks passed on 13 October 2026, including live browser access. The gallery listing is separate from the official WeDoWind challenge comment.
