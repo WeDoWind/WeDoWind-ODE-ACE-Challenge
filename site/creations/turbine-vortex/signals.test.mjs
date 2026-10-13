@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIELDS, parseSignals, AdaptiveRange, STALE_MS } from './signals.mjs';
+import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, angleDifference } from './signals.mjs';
 const now = 1791927600000;
 const fixture = () => ({ series: Object.fromEntries(FIELDS.map(f => [f, [0]])), series_quality: Object.fromEntries(FIELDS.map(f => [f, ['Good']])), series_observed_at: Object.fromEntries(FIELDS.map(f => [f, [now * 1000]])) });
 test('preserves zero, signed power and per-field observation times', () => {
@@ -32,4 +32,19 @@ test('clustered changes are visible and adaptation is gradual and bounded', () =
   assert.equal(range.normalize(100), 1); assert.equal(range.normalize(-100), 0);
   range.add(8, now + 302000, now + 302000);
   assert.equal(range.samples.length, 2);
+});
+test('signed vane angles are valid and easing takes the short route across wraparound', () => {
+  const data = fixture(); data.series.wec_wind_direction = [-12];
+  assert.equal(parseSignals(data, now).direction.value, -12);
+  assert.equal(angleDifference(1, 359), 2);
+  assert.equal(angleDifference(359, 1), -2);
+});
+test('absolute meanings stay fixed while recent detail changes', () => {
+  const data = fixture(); data.series.wec_wind_speed = [5]; data.series.wec_active_power = [1000];
+  const reading = parseSignals(data, now);
+  const calm = visualTargets(reading, 0, 0), lively = visualTargets(reading, 1, 1);
+  assert.equal(calm.wind, lively.wind); assert.equal(calm.power, lively.power);
+  assert.equal(calm.brightness, lively.brightness);
+  assert.ok(powerHue(0) > powerHue(250)); assert.ok(powerHue(1000) > powerHue(4200));
+  assert.equal(visualTargets(parseSignals(fixture(), now)).power, 0);
 });

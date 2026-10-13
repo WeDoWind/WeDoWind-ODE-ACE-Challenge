@@ -1,8 +1,22 @@
-export const FIELDS = ['wec_rotor_speed', 'wec_wind_speed', 'wec_active_power'];
+export const FIELDS = ['wec_rotor_speed', 'wec_wind_speed', 'wec_active_power', 'wec_wind_direction'];
 export const ENDPOINT = `https://ace-api.duckdns.org/v1/sites/ace/assets/wec-1/data/wec_instantaneous/latest?resolution=1s&fields=${FIELDS.join(',')}&limit=1`;
 export const STALE_MS = 60000;
 export const WINDOW_MS = 300000;
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
+export const wrapAngle = angle => ((angle + 180) % 360 + 360) % 360 - 180;
+export const angleDifference = (target, current) => wrapAngle(target - current);
+export const powerHue = power => {
+  const level = Math.sqrt(clamp(power / 4200));
+  return level < .5 ? 280 - level * 180 : 190 - (level - .5) * 300;
+};
+export function visualTargets(reading, windDetail = .5, powerDetail = .5) {
+  const wind = clamp(reading.wind.value / 15);
+  const power = clamp(reading.power.value / 4200);
+  return { rpm: clamp(reading.rpm.value, 0, 30), wind, power,
+    direction: wrapAngle(reading.direction.value),
+    windDetail, powerDetail,
+    brightness: .24 + .55 * Math.sqrt(power) };
+}
 
 export function parseSignals(data, now = Date.now()) {
   const signals = FIELDS.map(field => {
@@ -12,10 +26,10 @@ export function parseSignals(data, now = Date.now()) {
       String(data?.series_quality?.[field]?.[0]).toLowerCase() !== 'good' ||
       timestamp <= 0 || timestamp / 1000 > now + 5000 ||
       !Number.isFinite(new Date(timestamp / 1000).getTime())) throw new Error(`Invalid ${field}`);
-    if (field !== 'wec_active_power' && value < 0) throw new Error(`Negative ${field}`);
+    if (['wec_rotor_speed', 'wec_wind_speed'].includes(field) && value < 0) throw new Error(`Negative ${field}`);
     return { value, observed: timestamp / 1000 };
   });
-  return { rpm: signals[0], wind: signals[1], power: signals[2], oldest: Math.min(...signals.map(s => s.observed)) };
+  return { rpm: signals[0], wind: signals[1], power: signals[2], direction: signals[3], oldest: Math.min(...signals.map(s => s.observed)) };
 }
 
 // Quantiles resist spikes; minimum spans resist amplification of sensor noise.
