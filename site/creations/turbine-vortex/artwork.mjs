@@ -11,6 +11,7 @@ let width = 1, height = 1, previous = 0, frame, forceDraw = true;
 const visual = { rpm: 0, wind: 0, power: 0, brightness: .24, direction: 0, windDetail: .5, powerDetail: .5 };
 let initialized = false, lastFrame = 0, chromeTimer;
 let resting = true;
+let failureReason = '';
 
 function updateStatus() {
   const stale = reading && Date.now() - reading.oldest > STALE_MS;
@@ -23,7 +24,11 @@ function updateStatus() {
   const message = unavailable ? (reading ? 'Unavailable · last valid readings retained' : 'Unavailable · no valid readings') : stale ? 'Stale · last valid readings retained' : reading ? 'Live · ACE turbine / wec-1' : 'Connecting to ACE…';
   if (status.textContent !== message) status.textContent = message;
   $('mode').textContent = resting ? 'Artwork resting · ' + (unavailable ? 'data unavailable' : stale ? 'observations over 60 seconds old' : 'waiting for observations') : paused ? 'Motion paused · readings continue live' : 'Flying through recent turbine history · trails build over time';
-  $('observed').textContent = reading ? `Oldest signal: ${new Date(reading.oldest).toLocaleString()} · ${Math.max(0, Math.floor((Date.now() - reading.oldest) / 1000))}s ago` : 'No readings yet';
+  const ageSeconds = reading ? Math.floor((Date.now() - reading.oldest) / 1000) : 0;
+  const observation = reading ? `Oldest signal: ${new Date(reading.oldest).toLocaleString()} · ${Math.abs(ageSeconds)}s ${ageSeconds < 0 ? 'ahead' : 'ago'}` : 'No readings yet';
+  const aheadSeconds = reading ? Math.ceil((Math.max(...['rpm', 'wind', 'power', 'direction'].map(key => reading[key].observed)) - Date.now()) / 1000) : 0;
+  const clockNote = !unavailable && aheadSeconds > 5 ? `Clock difference: signal timestamps ${aheadSeconds}s ahead. ` : '';
+  $('observed').textContent = failureReason ? `Reason: ${failureReason}. ${observation}` : clockNote + observation;
   $('pause').textContent = paused ? 'Resume motion' : 'Pause motion';
   $('pause').setAttribute('aria-pressed', String(paused));
 }
@@ -32,7 +37,7 @@ const poller = createAcePoller({ endpoint: ENDPOINT, intervalMs: 2000,
   onData(data) {
     const next = parseSignals(data);
     if (reading && ['rpm', 'wind', 'power', 'direction'].some(key => next[key].observed < reading[key].observed)) throw new Error('Observation went backwards');
-    reading = next; unavailable = false;
+    reading = next; unavailable = false; failureReason = '';
     for (const [key, decimals] of [['rpm', 2], ['wind', 2], ['power', 1], ['direction', 1]]) {
       $(key).textContent = reading[key].value.toFixed(decimals);
       $(key + '-time').textContent = new Date(reading[key].observed).toLocaleTimeString();
@@ -47,7 +52,12 @@ const poller = createAcePoller({ endpoint: ENDPOINT, intervalMs: 2000,
     $('wind-marker').style.left = `${Math.max(0, Math.min(1, reading.wind.value / 15)) * 100}%`;
     updateStatus();
   },
-  onError() { unavailable = true; updateStatus(); }
+  onError(error) {
+    unavailable = true;
+    failureReason = error.name === 'AbortError' ? 'Request timed out after 15 seconds' : error instanceof TypeError ? 'Network request failed; check your connection or API availability' : error.message;
+    console.warn('Turbine Vortex data unavailable:', error);
+    updateStatus();
+  }
 });
 
 function resize() {

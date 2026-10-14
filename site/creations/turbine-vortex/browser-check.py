@@ -34,7 +34,7 @@ def run():
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
         requests = []
-        state = {'mode': 'valid'}
+        state = {'mode': 'ahead'}
 
         def respond(route):
             requests.append(time.monotonic())
@@ -45,6 +45,8 @@ def run():
                 route.fulfill(status=429, headers={'Retry-After': '5', 'Access-Control-Expose-Headers': 'Retry-After'}, body='rate limited')
                 return
             data = fixture((0, 0, 0, 0) if state['mode'] == 'zero' else (6.2, 4.8, 214, -12))
+            if state['mode'] == 'ahead':
+                data['series_observed_at'] = {f: [int((time.time() + 10) * 1000000)] for f in FIELDS}
             if state['mode'] == 'stale':
                 data['series_observed_at'][FIELDS[1]] = [int((time.time() - 70) * 1000000)]
             if state['mode'] == 'invalid':
@@ -53,6 +55,11 @@ def run():
 
         page.route('https://ace-api.duckdns.org/**', respond)
         page.goto(url)
+        page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')")
+        assert 'Clock difference' in page.locator('#observed').inner_text()
+        state['mode'] = 'valid'
+        page.reload()
+        requests.clear()
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')")
         page.wait_for_timeout(1000)
         assert page.locator('#rpm').inner_text() == '6.20'
@@ -78,6 +85,7 @@ def run():
         state['mode'] = 'invalid'
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Unavailable')")
         assert page.locator('#power').inner_text() == '214.0'
+        assert 'Missing or invalid wec_active_power reading' in page.locator('#observed').inner_text()
         state['mode'] = 'valid'
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=15000)
         state['mode'] = 'offline'
@@ -133,7 +141,7 @@ def run():
         assert not errors, errors
         browser.close()
     server.shutdown()
-    print('PASS: prefix, four live signals, immersion/quiet controls, responsive widths, focus, pause, reduced motion, zero, stale, invalid, offline, recovery, cooldown, Retry-After')
+    print('PASS: clock skew/visible diagnostics, prefix, four live signals, immersion/quiet controls, responsive widths, focus, pause, reduced motion, zero, stale, invalid, offline, recovery, cooldown, Retry-After')
 
 if __name__ == '__main__':
     run()

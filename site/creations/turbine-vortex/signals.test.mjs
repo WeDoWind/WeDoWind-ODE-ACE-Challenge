@@ -15,8 +15,18 @@ test('rejects missing/null readings, bad quality and invalid/future times', () =
   for (const field of FIELDS) {
     for (const bad of [null, undefined, NaN, '1']) { const d = fixture(); d.series[field] = [bad]; assert.throws(() => parseSignals(d, now)); }
     const bad = fixture(); bad.series_quality[field] = ['Bad']; assert.throws(() => parseSignals(bad, now));
-    for (const timestamp of [null, 0, Infinity, (now + 6000) * 1000]) { const d = fixture(); d.series_observed_at[field] = [timestamp]; assert.throws(() => parseSignals(d, now)); }
+    for (const timestamp of [null, 0, Infinity, (now + 60001) * 1000]) { const d = fixture(); d.series_observed_at[field] = [timestamp]; assert.throws(() => parseSignals(d, now)); }
   }
+});
+test('accepts observed API clock skew while rejecting implausible future timestamps', () => {
+  const d = fixture();
+  for (const field of FIELDS) d.series_observed_at[field] = [(now + 5600) * 1000];
+  assert.equal(parseSignals(d, now).oldest, now + 5600);
+  d.series_observed_at.wec_wind_speed = [(now + 60000) * 1000];
+  assert.equal(parseSignals(d, now).wind.observed, now + 60000);
+  assert.throws(() => parseSignals(d, now - 1), /ahead; check the device clock/);
+  d.series.wec_active_power = [null];
+  assert.throws(() => parseSignals(d, now), /Missing or invalid wec_active_power reading/);
 });
 test('steady signals resist noise and duplicate observations', () => {
   const range = new AdaptiveRange(250); range.add(200, now, now);
