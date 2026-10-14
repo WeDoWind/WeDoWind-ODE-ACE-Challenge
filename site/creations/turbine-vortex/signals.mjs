@@ -1,6 +1,7 @@
 export const FIELDS = ['wec_rotor_speed', 'wec_wind_speed', 'wec_active_power', 'wec_wind_direction'];
 export const ENDPOINT = `https://ace-api.duckdns.org/v1/sites/ace/assets/wec-1/data/wec_instantaneous/latest?resolution=1s&fields=${FIELDS.join(',')}&limit=1`;
 export const STALE_MS = 60000;
+export const MAX_CLOCK_SKEW_MS = 60000;
 export const WINDOW_MS = 300000;
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
 export const wrapAngle = angle => ((angle + 180) % 360 + 360) % 360 - 180;
@@ -22,10 +23,11 @@ export function parseSignals(data, now = Date.now()) {
   const signals = FIELDS.map(field => {
     const value = data?.series?.[field]?.[0];
     const timestamp = data?.series_observed_at?.[field]?.[0];
-    if (!Number.isFinite(value) || !Number.isFinite(timestamp) ||
-      String(data?.series_quality?.[field]?.[0]).toLowerCase() !== 'good' ||
-      timestamp <= 0 || timestamp / 1000 > now + 5000 ||
-      !Number.isFinite(new Date(timestamp / 1000).getTime())) throw new Error(`Invalid ${field}`);
+    if (!Number.isFinite(value)) throw new Error(`Missing or invalid ${field} reading`);
+    if (String(data?.series_quality?.[field]?.[0]).toLowerCase() !== 'good') throw new Error(`Non-Good quality for ${field}`);
+    if (!Number.isFinite(timestamp) || timestamp <= 0 ||
+      !Number.isFinite(new Date(timestamp / 1000).getTime())) throw new Error(`Missing or invalid ${field} observation time`);
+    if (timestamp / 1000 > now + MAX_CLOCK_SKEW_MS) throw new Error(`${field} observation is over 60 seconds ahead; check the device clock`);
     if (['wec_rotor_speed', 'wec_wind_speed'].includes(field) && value < 0) throw new Error(`Negative ${field}`);
     return { value, observed: timestamp / 1000 };
   });
