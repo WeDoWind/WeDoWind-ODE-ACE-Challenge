@@ -220,3 +220,17 @@ test('global artistic roll is slow, shared and independent of stored RPM phase',
   const memory = new TunnelMemory(); memory.step(0, first);
   assert.ok(memory.layers.length < 30);
 });
+
+test('bend exaggerates small direction changes while remaining bounded and centred', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  renderer.width = 1200; renderer.height = 600;
+  const unit = 600 * 1.25;
+  const mild = renderer.circle({ z: 9, direction: 5 });
+  assert.ok(Math.abs(mild.cx - 600 - Math.sin(20 * Math.PI / 180) * unit * .20) < 1e-10);
+  assert.ok(mild.cx - 600 > Math.sin(5 * Math.PI / 180) * unit * .20 * 3);
+  assert.deepEqual(renderer.circle({ z: 9, direction: 30 }), renderer.circle({ z: 9, direction: 180 }));
+  for (const direction of [-180,0,180]) {
+    const source = renderer.circle({ z: 18, direction });
+    assert.equal(source.cx, 600); assert.equal(source.cy, 300);
+  }
+});

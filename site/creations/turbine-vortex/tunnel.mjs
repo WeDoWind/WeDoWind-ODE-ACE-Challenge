@@ -73,7 +73,8 @@ export class TunnelRenderer {
     const scale = unit * depth;
     const distant = clamp(layer.z / FAR);
     // Historical vane angles shape the path; this screen mapping is not a compass.
-    const heading = (layer.direction ?? 0) * Math.PI / 180;
+    // Amplify small vane-angle changes without allowing large readings to loop the path.
+    const heading = clamp((layer.direction ?? 0) * 4, -120, 120) * Math.PI / 180;
     // Anchor the rotor and viewer on the centreline. Only the intervening wake bends.
     // A zero vane angle must give zero displacement, not a permanent upward curve.
     const bend = 4 * distant * (1 - distant);
