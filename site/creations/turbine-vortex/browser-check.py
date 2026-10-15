@@ -68,7 +68,7 @@ def run():
         before_auto = len(requests)
         page.wait_for_timeout(6500)
         assert len(requests) >= before_auto + 2, 'Automatic polling stopped without manual refresh'
-        assert 'kW mean' in page.locator('#power-change').inner_text()
+        assert page.locator('#power-change').count() == 0
         page.evaluate("for(let i=0;i<30;i++) document.querySelector('#refresh').click()")
         page.wait_for_timeout(200)
         page.locator('#pause').click()

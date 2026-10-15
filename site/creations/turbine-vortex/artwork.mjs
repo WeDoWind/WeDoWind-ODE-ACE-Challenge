@@ -54,8 +54,6 @@ const poller = createAcePoller({ endpoint: ENDPOINT, intervalMs: 2000,
       windChanges.add(reading.wind);
       if (!initialized) { Object.assign(visual, visualTargets(reading, .5, .5, powerAverage.mean())); initialized = true; }
     }
-    const mean = powerAverage.mean();
-    $('power-change').textContent = mean === null ? '30s mean pending' : `Δ ${(reading.power.value - mean) >= 0 ? '+' : ''}${(reading.power.value - mean).toFixed(1)} kW vs ${mean.toFixed(1)} kW mean${powerAverage.coverageSeconds() < 30 ? ' (warming up)' : ''}`;
     $('power-marker').style.left = `${Math.sqrt(Math.max(0, Math.min(1, reading.power.value / 4200))) * 100}%`;
     $('wind-marker').style.left = `${Math.max(0, Math.min(1, reading.wind.value / 15)) * 100}%`;
     updateStatus();
