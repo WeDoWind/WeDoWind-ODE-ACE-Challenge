@@ -23,6 +23,10 @@ export class TunnelMemory {
     }
     this.layers = this.layers.slice(0, 140);
   }
+  timeRange() {
+    const stamped = this.layers.filter(layer => Number.isFinite(layer.observed));
+    return stamped.length ? { oldest: Math.min(...stamped.map(layer => layer.oldestObserved ?? layer.observed)), newest: Math.max(...stamped.map(layer => layer.observed)) } : null;
+  }
 }
 
 export class TunnelRenderer {
@@ -38,7 +42,7 @@ export class TunnelRenderer {
     this.ctx.fillStyle = '#03050c'; this.ctx.fillRect(0, 0, width, height);
     this.lastResting = null;
   }
-  point(layer, a) {
+  circle(layer) {
     const { width: w, height: h } = this;
     const depth = 1 / (layer.z + .2), scale = Math.max(w, h) * .86 * depth;
     const distant = layer.z / FAR;
@@ -47,16 +51,46 @@ export class TunnelRenderer {
     const bend = Math.pow(distant, .8);
     const cx = w * .52 + Math.sin(heading) * w * .24 * bend;
     const cy = h * .53 - Math.cos(heading) * h * .16 * bend;
-    const twist = layer.twist + layer.z * .14 + this.memory.rotation * .28;
+    return { cx, cy, radius: scale };
+  }
+  point(layer, a) {
+    const { cx, cy, radius } = this.circle(layer);
+    const twist = layer.twist + (FAR - layer.z) * .14;
     const theta = a + twist;
-    const ripple = 1 + Math.sin(a * 5 + layer.twist * 2) * (.025 + layer.wind * .10)
-      + Math.cos(a * 3 - layer.twist) * (.015 + (layer.windDetail ?? .5) * .025);
-    return [cx + Math.cos(theta) * scale * ripple, cy + Math.sin(theta) * scale * ripple * .83];
+    return [cx + Math.cos(theta) * radius, cy + Math.sin(theta) * radius];
+  }
+  discardOffscreen() {
+    this.memory.layers = this.memory.layers.filter(layer => {
+      const { cx, cy, radius } = this.circle(layer);
+      const corner = Math.max(...[[0,0],[this.width,0],[0,this.height],[this.width,this.height]].map(([x,y]) => Math.hypot(x-cx,y-cy)));
+      return radius <= corner + 8;
+    });
+  }
+  drawRotor(signal, resting) {
+    const { ctx } = this;
+    const source = { ...signal, z: FAR, twist: this.memory.rotation };
+    const { cx, cy, radius } = this.circle(source);
+    const hue = resting ? 220 : colour(signal.power);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.memory.rotation);
+    ctx.fillStyle = `hsla(${hue},65%,80%,${resting ? .2 : .85})`;
+    ctx.strokeStyle = `hsla(${hue},90%,75%,${resting ? .15 : .9})`;
+    ctx.lineWidth = 1;
+    for (let blade = 0; blade < 3; blade++) {
+      ctx.save(); ctx.rotate(blade * Math.PI * 2 / 3);
+      ctx.beginPath(); ctx.moveTo(radius * .06, -radius * .06);
+      ctx.quadraticCurveTo(radius * .4, -radius * .18, radius, 0);
+      ctx.quadraticCurveTo(radius * .45, radius * .035, radius * .12, radius * .10);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(radius, 0, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(2, radius * .09), 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
   render(dt, signal, { active, resting, force = false }) {
     if (!active && !force && this.lastResting === resting) return;
     const { ctx, width: w, height: h } = this;
-    if (active) { this.time += dt; this.memory.step(dt, signal); }
+    if (active) { this.time += dt; this.memory.step(dt, signal); this.discardOffscreen(); }
     this.lastResting = resting;
     ctx.globalCompositeOperation = 'source-over';
     // Frame-rate-independent phosphor persistence: echoes remain for about 1.5s.
@@ -67,7 +101,7 @@ export class TunnelRenderer {
       ctx.strokeStyle = '#263953'; ctx.lineWidth = 1;
       for (let i = 0; i < 18; i++) {
         const r = 12 * Math.pow(1.22, i);
-        ctx.beginPath(); ctx.ellipse(w * .52, h * .53, r, r * .83, i * .04, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(w * .52, h * .53, r, 0, Math.PI * 2); ctx.stroke();
       }
       return;
     }
@@ -77,7 +111,8 @@ export class TunnelRenderer {
     const geometry = layers.map(layer => Array.from({ length: 97 }, (_, j) => this.point(layer, j / 96 * Math.PI * 2)));
     // History rings expand in perspective, then pass outside the viewport.
     for (const [index, layer] of layers.entries()) {
-      const intensity = (.15 + .8 * layer.brightness) * attenuation;
+      const ripple = .88 + .12 * Math.sin(layer.twist * 2 + layer.z * (.4 + layer.wind));
+      const intensity = (.15 + .8 * layer.brightness) * attenuation * ripple;
       const hue = resting ? 220 : colour(layer.power) + ((layer.powerDetail ?? .5) - .5) * 12;
       ctx.beginPath();
       for (let j = 0; j <= 96; j++) {
@@ -88,6 +123,18 @@ export class TunnelRenderer {
       ctx.lineWidth = clamp(2.6 / (layer.z + .4), .5, 5);
       ctx.stroke();
     }
+    // Three principal wake strands begin at the tips of the rotating rotor.
+    for (let blade = 0; blade < 3; blade++) {
+      const source = { ...signal, z: FAR, twist: this.memory.rotation };
+      let previous = this.point(source, blade * Math.PI * 2 / 3);
+      for (const layer of layers) {
+        const current = this.point(layer, blade * Math.PI * 2 / 3);
+        ctx.beginPath(); ctx.moveTo(...previous); ctx.lineTo(...current);
+        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.15 + layer.brightness * .75)})`;
+        ctx.lineWidth = clamp(12 / (layer.z + .5), 1.2, 7); ctx.stroke(); previous = current;
+      }
+    }
+    this.drawRotor(signal, resting);
     // Twisting wall filaments connect the remembered readings into a tunnel.
     for (let strand = 0; strand < 32; strand++) {
       const a = strand / 32 * Math.PI * 2;

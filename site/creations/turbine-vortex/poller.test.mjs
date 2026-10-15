@@ -18,6 +18,12 @@ try {
   assert.equal(values, 1);
   assert.equal(await poller.refresh(), false);
   assert.equal(calls, 1);
+  // Reproduce a browser timeout firing just before its monotonic deadline.
+  now = 999.75;
+  const early = [...timers.entries()].find(([, timer]) => timer.delay === 1000);
+  timers.delete(early[0]); await early[1].callback();
+  assert.equal(calls, 1, 'Early timer must not fetch before the cooldown');
+  assert.ok([...timers.values()].some(timer => timer.delay === 1), 'Early timer must rearm itself');
   now = 1000;
   await poller.refresh();
   assert.equal(calls, 2);
@@ -31,7 +37,7 @@ try {
   assert.equal(errors, 1);
   now = 3000;
   assert.equal(await poller.refresh(), false, 'Manual refresh must respect Retry-After');
-  assert.ok([...timers.values()].some(timer => timer.delay === 10000));
+  assert.ok([...timers.values()].some(timer => timer.delay === 9000));
   now = 12000;
   response = { ok: false, status: 429, headers: { get: () => null } };
   await poller.refresh();
@@ -48,6 +54,15 @@ try {
   release({ ok: true, json: async () => ({ value: 1 }) });
   await pending;
   assert.equal(values, 3);
+  // Thousands of early timer deliveries must never strand the polling loop.
+  globalThis.fetch = async () => { calls++; return { ok: true, json: async () => ({ value: 1 }) }; };
+  for (let i = 0; i < 10000; i++) {
+    const [id, timer] = [...timers.entries()][0]; timers.delete(id);
+    now += timer.delay - .25; await timer.callback();
+    assert.ok(timers.size > 0, 'Automatic poll must remain scheduled');
+    const [retryId, retry] = [...timers.entries()][0]; timers.delete(retryId);
+    now += retry.delay; await retry.callback();
+  }
   poller.stop();
   assert.equal(timers.size, 0);
   console.log('ACE polling starter passed: one-second limit, manual clicks, resume cooldown, Retry-After, overlap and stop.');

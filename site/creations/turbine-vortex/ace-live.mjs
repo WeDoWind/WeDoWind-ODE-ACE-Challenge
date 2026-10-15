@@ -10,7 +10,15 @@ export function createAcePoller({ endpoint, onData, onError, intervalMs = 1000 }
   let controller;
 
   async function refresh() {
-    if (stopped || pending || performance.now() < nextAllowed) return false;
+    if (stopped || pending) return false;
+    const wait = nextAllowed - performance.now();
+    if (wait > 0) {
+      // Browser timers can fire fractionally early. Keep the loop alive without
+      // bypassing the cooldown (manual clicks share this exact same path).
+      clearTimeout(timer);
+      timer = setTimeout(refresh, Math.ceil(wait));
+      return false;
+    }
     clearTimeout(timer);
     pending = true;
     nextAllowed = performance.now() + interval;
@@ -42,7 +50,7 @@ export function createAcePoller({ endpoint, onData, onError, intervalMs = 1000 }
       pending = false;
       // Cooldown applies to manual refresh too, including Retry-After/backoff.
       nextAllowed = performance.now() + delay;
-      if (!stopped) timer = setTimeout(refresh, delay);
+      if (!stopped) timer = setTimeout(refresh, Math.ceil(delay));
     }
     return true;
   }

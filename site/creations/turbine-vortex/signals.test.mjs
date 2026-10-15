@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, angleDifference } from './signals.mjs';
+import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, angleDifference, SignalFreshness, PowerAverage } from './signals.mjs';
 const now = 1791927600000;
 const fixture = () => ({ series: Object.fromEntries(FIELDS.map(f => [f, [0]])), series_quality: Object.fromEntries(FIELDS.map(f => [f, ['Good']])), series_observed_at: Object.fromEntries(FIELDS.map(f => [f, [now * 1000]])) });
 test('preserves zero, signed power and per-field observation times', () => {
@@ -11,22 +11,43 @@ test('preserves zero, signed power and per-field observation times', () => {
   assert.equal(result.rpm.value, 0); assert.equal(result.power.value, -2);
   assert.equal(result.oldest, now - 61000); assert.ok(now - result.oldest > STALE_MS);
 });
-test('rejects missing/null readings, bad quality and invalid/future times', () => {
+test('rejects missing/null readings, bad quality and invalid times', () => {
   for (const field of FIELDS) {
     for (const bad of [null, undefined, NaN, '1']) { const d = fixture(); d.series[field] = [bad]; assert.throws(() => parseSignals(d, now)); }
     const bad = fixture(); bad.series_quality[field] = ['Bad']; assert.throws(() => parseSignals(bad, now));
-    for (const timestamp of [null, 0, Infinity, (now + 60001) * 1000]) { const d = fixture(); d.series_observed_at[field] = [timestamp]; assert.throws(() => parseSignals(d, now)); }
+    for (const timestamp of [null, 0, Infinity]) { const d = fixture(); d.series_observed_at[field] = [timestamp]; assert.throws(() => parseSignals(d)); }
   }
 });
-test('accepts observed API clock skew while rejecting implausible future timestamps', () => {
+test('data parsing does not depend on the local wall clock', () => {
   const d = fixture();
   for (const field of FIELDS) d.series_observed_at[field] = [(now + 5600) * 1000];
   assert.equal(parseSignals(d, now).oldest, now + 5600);
   d.series_observed_at.wec_wind_speed = [(now + 60000) * 1000];
   assert.equal(parseSignals(d, now).wind.observed, now + 60000);
-  assert.throws(() => parseSignals(d, now - 1), /ahead; check the device clock/);
+  assert.equal(parseSignals(d, 0).wind.observed, now + 60000);
   d.series.wec_active_power = [null];
   assert.throws(() => parseSignals(d, now), /Missing or invalid wec_active_power reading/);
+});
+test('freshness detects stalled signals and data-relative age independently of wall time', () => {
+  const clock = new SignalFreshness(), reading = parseSignals(fixture());
+  clock.update(reading, 0); assert.equal(clock.stale(59999), false);
+  clock.update(reading, 50000); assert.equal(clock.stale(60001), true, 'Repeated same data cannot reset freshness');
+  const newer = fixture(); for (const field of FIELDS) newer.series_observed_at[field] = [(now + 100000) * 1000];
+  clock.update(parseSignals(newer), 61000); assert.equal(clock.stale(61000), false);
+  const old = fixture(); old.collection_timestamps = [(now + 70000) * 1000];
+  const aged = new SignalFreshness(); aged.update(parseSignals(old), 0); assert.equal(aged.stale(0), true);
+});
+test('30-second mean is time weighted, ignores duplicates and excludes expired history', () => {
+  const average = new PowerAverage(); average.add(100, now); average.add(200, now + 10000); average.add(300, now + 30000);
+  assert.ok(Math.abs(average.mean() - 500 / 3) < .0001);
+  average.add(999, now + 30000); assert.ok(Math.abs(average.mean() - 500 / 3) < .0001);
+  average.add(300, now + 40000); assert.ok(Math.abs(average.mean() - 700 / 3) < .0001);
+  for (let i = 40001; i < 50000; i++) average.add(300, now + i);
+  assert.ok(average.samples.length <= 256);
+  const read = parseSignals(fixture()); read.power.value = 120;
+  assert.ok(visualTargets(read, .5, .5, 100).brightness > .5);
+  read.power.value = 80; assert.ok(visualTargets(read, .5, .5, 100).brightness < .5);
+  read.power.value = 100; assert.equal(visualTargets(read, .5, .5, 100).brightness, .5);
 });
 test('steady signals resist noise and duplicate observations', () => {
   const range = new AdaptiveRange(250); range.add(200, now, now);
