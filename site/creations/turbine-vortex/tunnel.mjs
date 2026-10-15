@@ -1,6 +1,6 @@
 import { clamp, powerHue, angleDifference } from './signals.mjs';
 
-const FAR = 28, NEAR = .45, EMIT_SECONDS = .65;
+const FAR = 18, NEAR = .45, EMIT_SECONDS = .65;
 const colour = power => powerHue(power * 4200);
 
 // Catmull–Rom controls keep adjoining screen-space curve tangents continuous.
@@ -68,8 +68,8 @@ export class TunnelRenderer {
     const unit = Math.min(w, h) * 1.25;
     // Expand radial depth spacing while anchoring the rotor's apparent size.
     // This opens the distant turns without changing RPM or history emission.
-    const sourceDepth = 1 / (FAR + .2);
-    const depth = sourceDepth + 4 * (1 / (layer.z + .2) - sourceDepth);
+    const sourceDepth = 1 / (28 + .2);
+    const depth = sourceDepth + 4 * (1 / (layer.z * 28 / FAR + .2) - sourceDepth);
     const scale = unit * depth;
     const distant = clamp(layer.z / FAR);
     // Historical vane angles shape the path; this screen mapping is not a compass.
@@ -77,21 +77,24 @@ export class TunnelRenderer {
     // Anchor the rotor and viewer on the centreline. Only the intervening wake bends.
     // A zero vane angle must give zero displacement, not a permanent upward curve.
     const bend = 4 * distant * (1 - distant);
-    const cx = w / 2 + Math.sin(heading) * unit * .20 * bend;
-    const cy = h / 2 + (1 - Math.cos(heading)) * unit * .10 * bend;
+    const x = Math.sin(heading) * unit * .20 * bend;
+    const y = (1 - Math.cos(heading)) * unit * .10 * bend;
+    const roll = this.time * .025;
+    const cx = w / 2 + x * Math.cos(roll) - y * Math.sin(roll);
+    const cy = h / 2 + x * Math.sin(roll) + y * Math.cos(roll);
     return { cx, cy, radius: scale };
   }
   point(layer, a) {
     const { cx, cy, radius } = this.circle(layer);
-    const twist = layer.twist;
+    const twist = layer.twist + this.time * .025;
     const theta = a + twist;
     // Blend a circle into a retained, irregular 12-sided cross-section.
     // No deformation at the rotor: all three wake strands meet their blade tips.
-    const roughness = clamp((layer.turbulence ?? 0) * 1.8) * clamp((FAR - layer.z) / 3);
+    const roughness = clamp((layer.turbulence ?? 0) * 1.4) * clamp((FAR - layer.z) / 3);
     const sector = Math.PI * 2 / 12, vertex = Math.floor(a / sector), fraction = a / sector - vertex;
     const corner = index => {
       const angle = index * sector;
-      const r = radius * (1 + .22 * Math.sin(index * Math.PI * 2 / 3 + layer.twist * 1.7));
+      const r = radius * (1 + .16 * Math.sin(index * Math.PI * 2 / 3 + layer.twist * 1.7));
       return [Math.cos(angle + twist) * r, Math.sin(angle + twist) * r];
     };
     const left = corner(vertex), right = corner(vertex + 1);
@@ -130,7 +133,7 @@ export class TunnelRenderer {
     this.memory.layers = this.memory.layers.filter(layer => {
       const { cx, cy, radius } = this.circle(layer);
       const corner = Math.max(...[[0,0],[this.width,0],[0,this.height],[this.width,this.height]].map(([x,y]) => Math.hypot(x-cx,y-cy)));
-      return radius * (1 - .32 * clamp((layer.turbulence ?? 0) * 1.8)) <= corner + 8;
+      return radius * (1 - .32 * clamp((layer.turbulence ?? 0) * 1.4)) <= corner + 8;
     });
   }
   present() {
@@ -161,8 +164,8 @@ export class TunnelRenderer {
     const stateChanged = this.lastResting !== resting;
     this.lastResting = resting;
     ctx.globalCompositeOperation = 'source-over';
-    // Frame-rate-independent phosphor persistence: echoes remain for about 1.5s.
-    const fade = active && !force && !stateChanged && !resting ? 1 - Math.exp(-dt / .26) : 1;
+    // Frame-rate-independent phosphor persistence: echoes remain for about 1s.
+    const fade = active && !force && !stateChanged && !resting ? 1 - Math.exp(-dt / .19) : 1;
     ctx.fillStyle = `rgba(3,5,12,${fade})`; ctx.fillRect(0, 0, w, h);
     const layers = this.memory.layers;
     if (resting || !layers.length) {
@@ -196,25 +199,25 @@ export class TunnelRenderer {
       for (let i = 0; i < samples.length - 1; i++) {
         const layer = samples[i + 1].layer;
         ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i, layer.turbulence ?? 0));
-        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.08 + layer.brightness * .34)})`;
+        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.06 + layer.brightness * .26)})`;
         ctx.lineWidth = clamp(9 / (layer.z + .5), .9, 4.5); ctx.stroke();
       }
     }
     // Twisting wall filaments connect the remembered readings into a tunnel.
-    for (let strand = 0; strand < 32; strand++) {
-      const a = strand / 32 * Math.PI * 2;
-      const points = geometry.map(ring => ring[strand * 3]);
+    for (let strand = 0; strand < 24; strand++) {
+      const a = strand / 24 * Math.PI * 2;
+      const points = geometry.map(ring => ring[strand * 4]);
       for (let i = 1; i < layers.length; i++) {
         const older = layers[i], newer = layers[i - 1];
-        const [x, y] = geometry[i][strand * 3], [nx, ny] = geometry[i - 1][strand * 3];
+        const [x, y] = geometry[i][strand * 4], [nx, ny] = geometry[i - 1][strand * 4];
         const hue = resting ? 220 : colour(older.power) + Math.sin(a * 3) * 8;
-        ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1, clamp((older.turbulence ?? 0) * 1.8)));
+        ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1, clamp((older.turbulence ?? 0) * 1.4)));
         ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.16 + older.brightness * .55) * clamp((FAR - older.z) / 4, 0, 1)})`;
         ctx.lineWidth = clamp(4 / (older.z + .5), .7, 6); ctx.stroke();
         // Bright beads produce streaks that enlarge as they approach the viewer.
-        if ((older.serial + strand * 3) % Math.round(24 - Math.sqrt(older.power) * 14) === 0) {
+        if ((older.serial + strand * 3) % Math.round(36 - Math.sqrt(older.power) * 16) === 0) {
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (x - nx) * .65, y + (y - ny) * .65);
-          ctx.strokeStyle = `hsla(${hue},90%,78%,${attenuation * (.2 + older.brightness * .5)})`;
+          ctx.strokeStyle = `hsla(${hue},90%,78%,${attenuation * (.12 + older.brightness * .3)})`;
           ctx.lineWidth = clamp(5 / (older.z + .5), 1, 7); ctx.stroke();
         }
       }

@@ -31,7 +31,7 @@ test('older layers leave the screen and memory stays bounded over a long session
   const oldLayer = memory.layers[10];
   for (let i = 0; i < 36000; i++) memory.step(.1, first);
   assert.ok(!memory.layers.includes(oldLayer)); assert.ok(memory.layers.length <= 140);
-  assert.ok(memory.layers.every(layer => layer.z > .45 && layer.z <= 28));
+  assert.ok(memory.layers.every(layer => layer.z > .45 && layer.z <= 18));
 });
 test('zero RPM produces no rotation while camera travel remains artistic', () => {
   const memory = new TunnelMemory(); memory.step(1, { ...first, rpm: 0 });
@@ -67,7 +67,7 @@ test('smooth tip trails remain finite and attach to the rotating blade tips', ()
   for (let blade = 0; blade < 3; blade++) {
     const angle = blade * Math.PI * 2 / 3;
     const samples = renderer.wakeSamples(first, angle);
-    assert.deepEqual(samples[0].point, renderer.point({ ...first, z: 28, twist: renderer.memory.rotation }, angle));
+    assert.deepEqual(samples[0].point, renderer.point({ ...first, z: 18, twist: renderer.memory.rotation }, angle));
     assert.ok(samples.every(s => s.point.every(Number.isFinite)));
   }
 });
@@ -77,7 +77,7 @@ test('calm and strong-wind sessions retain bounded history for an hour', () => {
     const memory = new TunnelMemory();
     for (let i = 0; i < 36000; i++) memory.step(.1, { ...first, wind });
     assert.ok(memory.layers.length <= 140);
-    assert.ok(memory.layers.every(layer => layer.z > .45 && layer.z <= 28));
+    assert.ok(memory.layers.every(layer => layer.z > .45 && layer.z <= 18));
   }
 });
 
@@ -90,7 +90,7 @@ test('wind roughness changes downstream polygons but never detaches blade tips',
   assert.deepEqual(renderer.point(rough, .3), renderer.point(rough, .3));
   for (let blade = 0; blade < 3; blade++) {
     const a = blade * Math.PI * 2 / 3;
-    assert.deepEqual(renderer.point({ ...calm, z: 28 }, a), renderer.point({ ...rough, z: 28 }, a));
+    assert.deepEqual(renderer.point({ ...calm, z: 18 }, a), renderer.point({ ...rough, z: 18 }, a));
   }
   const points = [[0,0],[2,3],[5,2],[8,5]], controls = curveControls(points, 1, 1);
   assert.deepEqual(controls, [3, 3 - 1/3, 4, 3 - 2/3, 5, 2]);
@@ -135,10 +135,10 @@ test('rotor stays centred for every direction and neutral wind gives a straight 
   for (const [width, height] of [[1200,600], [600,1200]]) {
     renderer.width = width; renderer.height = height;
     for (const direction of [-180,-45,0,45,180]) {
-      const source = renderer.circle({ z: 28, direction });
+      const source = renderer.circle({ z: 18, direction });
       assert.equal(source.cx, width / 2); assert.equal(source.cy, height / 2);
     }
-    for (const z of [.45,7,14,21,28]) {
+    for (const z of [.45,4,9,14,18]) {
       const centre = renderer.circle({ z, direction: 0 });
       assert.equal(centre.cx, width / 2); assert.equal(centre.cy, height / 2);
     }
@@ -171,11 +171,11 @@ test('expanded perspective preserves rotor size and spreads distant turns by 4',
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
   renderer.width = 1200; renderer.height = 600;
   const unit = 600 * 1.25;
-  assert.equal(renderer.circle({ z: 28 }).radius, unit / 28.2);
-  const far = renderer.circle({ z: 27 }).radius, nearer = renderer.circle({ z: 25 }).radius;
-  const originalSpacing = unit * (1 / 25.2 - 1 / 27.2);
+  assert.equal(renderer.circle({ z: 18 }).radius, unit / 28.2);
+  const far = renderer.circle({ z: 17 }).radius, nearer = renderer.circle({ z: 15 }).radius;
+  const originalSpacing = unit * (1 / (15 * 28 / 18 + .2) - 1 / (17 * 28 / 18 + .2));
   assert.ok(Math.abs((nearer - far) / originalSpacing - 4) < 1e-10);
-  const radii = [28,24,18,10,2].map(z => renderer.circle({ z }).radius);
+  const radii = [18,15,12,8,2].map(z => renderer.circle({ z }).radius);
   assert.ok(radii.every((radius, i) => i === 0 || radius > radii[i - 1]));
 });
 
@@ -195,7 +195,7 @@ test('three blade trails keep 120-degree spacing and no depth-dependent extra ro
   renderer.memory.step(0, { ...first, rpm: 12 });
   renderer.memory.step(1, { ...first, rpm: 12 });
   assert.ok(Math.abs(renderer.memory.rotation - Math.PI * 2 / 5) < 1e-10);
-  for (const z of [28,20,10,2]) {
+  for (const z of [18,14,10,2]) {
     const layer = { ...first, direction: 0, turbulence: 0, z, twist: renderer.memory.rotation };
     for (let blade = 0; blade < 3; blade++) {
       const angle = layer.twist + blade * Math.PI * 2 / 3;
@@ -206,4 +206,17 @@ test('three blade trails keep 120-degree spacing and no depth-dependent extra ro
       assert.deepEqual(renderer.wallPoint(layer, blade * Math.PI * 2 / 3), [x,y]);
     }
   }
+});
+
+test('global artistic roll is slow, shared and independent of stored RPM phase', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  renderer.width = 1200; renderer.height = 600;
+  const layer = { ...first, z: 9, twist: .5, direction: 0, turbulence: 0 };
+  const before = renderer.wakePoint(layer, 0);
+  renderer.time = 10;
+  const after = renderer.wakePoint(layer, 0);
+  assert.ok(Math.abs(Math.atan2(after[1]-300,after[0]-600) - Math.atan2(before[1]-300,before[0]-600) - .25) < 1e-10);
+  assert.equal(layer.twist, .5);
+  const memory = new TunnelMemory(); memory.step(0, first);
+  assert.ok(memory.layers.length < 30);
 });
