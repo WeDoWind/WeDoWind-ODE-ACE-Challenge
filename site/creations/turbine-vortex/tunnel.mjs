@@ -65,12 +65,14 @@ export class TunnelRenderer {
     const { width: w, height: h } = this;
     const unit = Math.min(w, h) * 1.25;
     const depth = 1 / (layer.z + .2), scale = unit * depth;
-    const distant = layer.z / FAR;
+    const distant = clamp(layer.z / FAR);
     // Historical vane angles shape the path; this screen mapping is not a compass.
     const heading = (layer.direction ?? 0) * Math.PI / 180;
-    const bend = Math.pow(distant, .8);
+    // Anchor the rotor and viewer on the centreline. Only the intervening wake bends.
+    // A zero vane angle must give zero displacement, not a permanent upward curve.
+    const bend = 4 * distant * (1 - distant);
     const cx = w / 2 + Math.sin(heading) * unit * .20 * bend;
-    const cy = h / 2 - Math.cos(heading) * unit * .20 * bend;
+    const cy = h / 2 + (1 - Math.cos(heading)) * unit * .10 * bend;
     return { cx, cy, radius: scale };
   }
   point(layer, a) {

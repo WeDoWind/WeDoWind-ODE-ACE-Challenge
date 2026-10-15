@@ -129,3 +129,22 @@ test('rotor is composited separately from persistent wake without a dark mask', 
   assert.ok(!wakeCalls.some(call => call[0] === 'quadraticCurveTo'));
   assert.ok(!displayCalls.some(call => call[0] === 'fillRect'));
 });
+
+test('rotor stays centred for every direction and neutral wind gives a straight centreline', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  for (const [width, height] of [[1200,600], [600,1200]]) {
+    renderer.width = width; renderer.height = height;
+    for (const direction of [-180,-45,0,45,180]) {
+      const source = renderer.circle({ z: 28, direction });
+      assert.equal(source.cx, width / 2); assert.equal(source.cy, height / 2);
+    }
+    for (const z of [.45,7,14,21,28]) {
+      const centre = renderer.circle({ z, direction: 0 });
+      assert.equal(centre.cx, width / 2); assert.equal(centre.cy, height / 2);
+    }
+    const left = renderer.circle({ z: 14, direction: -30 });
+    const right = renderer.circle({ z: 14, direction: 30 });
+    assert.ok(left.cx < width / 2 && right.cx > width / 2);
+    assert.equal(left.cy, right.cy);
+  }
+});
