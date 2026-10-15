@@ -179,12 +179,31 @@ test('expanded perspective preserves rotor size and spreads distant turns by 4',
   assert.ok(radii.every((radius, i) => i === 0 || radius > radii[i - 1]));
 });
 
-test('walls turn gently while secondary trails retain the complete rotor angle', () => {
+test('walls and three blade trails share the complete measured rotor phase', () => {
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
   renderer.width = 1200; renderer.height = 600;
   const layer = { ...first, z: 14, twist: 1, depthTwist: 0, direction: 0, turbulence: 0 };
   const wall = renderer.wallPoint(layer, 0), trail = renderer.wakePoint(layer, 0);
-  assert.ok(Math.abs(Math.atan2(wall[1] - 300, wall[0] - 600) - .18) < 1e-10);
+  assert.ok(Math.abs(Math.atan2(wall[1] - 300, wall[0] - 600) - 1) < 1e-10);
   assert.ok(Math.abs(Math.atan2(trail[1] - 300, trail[0] - 600) - 1) < 1e-10);
   assert.deepEqual(renderer.wallPoint({ ...layer, twist: 0 }, 0), renderer.wakePoint({ ...layer, twist: 0 }, 0));
+});
+
+test('three blade trails keep 120-degree spacing and no depth-dependent extra rotation', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  renderer.width = 1200; renderer.height = 600;
+  renderer.memory.step(0, { ...first, rpm: 12 });
+  renderer.memory.step(1, { ...first, rpm: 12 });
+  assert.ok(Math.abs(renderer.memory.rotation - Math.PI * 2 / 5) < 1e-10);
+  for (const z of [28,20,10,2]) {
+    const layer = { ...first, direction: 0, turbulence: 0, z, twist: renderer.memory.rotation };
+    for (let blade = 0; blade < 3; blade++) {
+      const angle = layer.twist + blade * Math.PI * 2 / 3;
+      const [x,y] = renderer.wakePoint(layer, blade * Math.PI * 2 / 3);
+      const radius = renderer.circle(layer).radius;
+      assert.ok(Math.abs((x-600)/radius - Math.cos(angle)) < 1e-10);
+      assert.ok(Math.abs((y-300)/radius - Math.sin(angle)) < 1e-10);
+      assert.deepEqual(renderer.wallPoint(layer, blade * Math.PI * 2 / 3), [x,y]);
+    }
+  }
 });

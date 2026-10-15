@@ -83,7 +83,7 @@ export class TunnelRenderer {
   }
   point(layer, a) {
     const { cx, cy, radius } = this.circle(layer);
-    const twist = layer.twist + (FAR - layer.z) * .14 * (layer.depthTwist ?? 1);
+    const twist = layer.twist;
     const theta = a + twist;
     // Blend a circle into a retained, irregular 12-sided cross-section.
     // No deformation at the rotor: all three wake strands meet their blade tips.
@@ -100,8 +100,8 @@ export class TunnelRenderer {
       cy + y + (left[1] + (right[1] - left[1]) * fraction - y) * roughness];
   }
   wallPoint(layer, a) {
-    // The enclosing walls turn gently; the three secondary trails retain full RPM.
-    return this.point({ ...layer, twist: layer.twist * .18, depthTwist: (layer.depthTwist ?? 1) * .25 }, a);
+    // Walls and the three blade trails share the same retained rotor phase.
+    return this.point(layer, a);
   }
   wakePoint(layer, a) {
     return this.point(layer, a);
@@ -189,15 +189,15 @@ export class TunnelRenderer {
       ctx.lineWidth = clamp(5 / (layer.z + .4), .8, 5);
       ctx.stroke();
     }
-    // Three subtle secondary trails retain the measured rotor rotation.
+    // Three distinct blade trails retain the measured rotor rotation at 120-degree spacing.
     for (let blade = 0; blade < 3; blade++) {
       const samples = this.wakeSamples(signal, blade * Math.PI * 2 / 3);
       const points = samples.map(sample => sample.point);
       for (let i = 0; i < samples.length - 1; i++) {
         const layer = samples[i + 1].layer;
         ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i, layer.turbulence ?? 0));
-        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.025 + layer.brightness * .12)})`;
-        ctx.lineWidth = clamp(5 / (layer.z + .5), .6, 3); ctx.stroke();
+        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.08 + layer.brightness * .34)})`;
+        ctx.lineWidth = clamp(9 / (layer.z + .5), .9, 4.5); ctx.stroke();
       }
     }
     // Twisting wall filaments connect the remembered readings into a tunnel.
