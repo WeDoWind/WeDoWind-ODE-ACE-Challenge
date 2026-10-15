@@ -11,7 +11,7 @@ export function curveControls(points, index) {
     p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, ...p2];
 }
 
-// Every emitted cross-section keeps its own colour, wind deformation and rotation.
+// Every emitted cross-section keeps its own colour, wind speed and rotation.
 // Startup geometry shares the first real observation; it does not invent a past feed.
 export class TunnelMemory {
   constructor() { this.layers = []; this.elapsed = 0; this.rotation = 0; this.serial = 0; }
@@ -71,47 +71,6 @@ export class TunnelRenderer {
   wakePoint(layer, a) {
     return this.point(layer, a);
   }
-  eddyState(layer, blade) {
-    const distance = Math.max(0, FAR - layer.z), envelope = 1 - Math.exp(-distance / 3);
-    const strength = (layer.shedding ?? 0) * envelope;
-    const center = this.wakePoint(layer, blade * Math.PI * 2 / 3);
-    const radius = clamp(this.circle(layer).radius * (.035 + strength * .035), 2, 30);
-    const flutter = radius * .45 * (layer.turbulence ?? 0);
-    return { x: center[0] + Math.sin(this.time * 5 + layer.serial + blade) * flutter,
-      y: center[1] + Math.cos(this.time * 6 + layer.serial + blade) * flutter,
-      radius, strength, spin: this.time * (1.5 + (layer.shedding ?? 0) * 4) * (layer.curlSign ?? 1) + layer.serial * .8 + blade };
-  }
-  drawEddies(resting) {
-    const { ctx } = this;
-    for (const layer of this.memory.layers) {
-      if ((layer.shedding ?? 0) < .08) continue;
-      const spacing = Math.round(8 - (layer.shedding ?? 0) * 5);
-      for (let blade = 0; blade < 3; blade++) {
-        if ((layer.serial + blade * 2) % spacing !== 0) continue;
-        const eddy = this.eddyState(layer, blade);
-        if (eddy.strength < .05) continue;
-        ctx.save(); ctx.translate(eddy.x, eddy.y); ctx.rotate(eddy.spin);
-        // A soft dark halo keeps each little whirl readable over the bright wake.
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = `rgba(3,5,12,${resting ? .15 : .45})`;
-        ctx.beginPath(); ctx.arc(0, 0, eddy.radius * 1.1, 0, Math.PI * 2); ctx.fill();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power) + 18},90%,82%,${(resting ? .12 : .5 + eddy.strength * .45)})`;
-        ctx.lineWidth = clamp(eddy.radius / 10, .8, 2);
-        for (let arm = 0; arm < 2; arm++) {
-          ctx.beginPath();
-          for (let j = 0; j <= 40; j++) {
-            const t = j / 40, angle = t * Math.PI * 3 + arm * Math.PI;
-            const r = eddy.radius * (.08 + t * .92);
-            const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
-            if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-          }
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-    }
-  }
   wakeSamples(signal, a) {
     const source = { ...signal, z: FAR, twist: this.memory.rotation };
     const nodes = [source, ...this.memory.layers];
@@ -121,8 +80,8 @@ export class TunnelRenderer {
       const count = clamp(Math.ceil(Math.max(Math.abs(to.twist - from.twist) * 8, Math.abs(to.z - from.z) * 6)), 3, 16);
       for (let j = 1; j <= count; j++) {
         const t = j / count, layer = { ...to };
-        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence', 'shedding', 'curlSign']) {
-          const start = from[key] ?? (key === 'curlSign' ? 1 : 0), end = to[key] ?? (key === 'curlSign' ? 1 : 0);
+        for (const key of ['z', 'twist', 'power', 'brightness']) {
+          const start = from[key] ?? 0, end = to[key] ?? 0;
           layer[key] = start + (end - start) * t;
         }
         layer.direction = (from.direction ?? 0) + angleDifference(to.direction ?? 0, from.direction ?? 0) * t;
@@ -135,8 +94,7 @@ export class TunnelRenderer {
     this.memory.layers = this.memory.layers.filter(layer => {
       const { cx, cy, radius } = this.circle(layer);
       const corner = Math.max(...[[0,0],[this.width,0],[0,this.height],[this.width,this.height]].map(([x,y]) => Math.hypot(x-cx,y-cy)));
-      // Eddies belong to their layer and disappear with it; no particle backlog.
-      return radius <= corner + 52;
+      return radius <= corner + 8;
     });
   }
   drawRotor(signal, resting) {
@@ -146,8 +104,11 @@ export class TunnelRenderer {
     const hue = resting ? 220 : colour(signal.power);
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.memory.rotation);
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(3,5,12,.88)';
-    ctx.beginPath(); ctx.arc(0, 0, radius * .75, 0, Math.PI * 2); ctx.fill();
+    // A feathered clearing removes the tight wake collar without a visible disk edge.
+    const clearing = ctx.createRadialGradient(0, 0, radius * .95, 0, 0, radius * 2);
+    clearing.addColorStop(0, '#03050c'); clearing.addColorStop(1, 'rgba(3,5,12,0)');
+    ctx.fillStyle = clearing;
+    ctx.fillRect(-radius * 2, -radius * 2, radius * 4, radius * 4);
     ctx.fillStyle = `hsla(${hue},65%,80%,${resting ? .2 : .85})`;
     ctx.strokeStyle = `hsla(${hue},90%,75%,${resting ? .15 : .9})`;
     ctx.lineWidth = 1;
@@ -157,7 +118,6 @@ export class TunnelRenderer {
       ctx.quadraticCurveTo(radius * .4, -radius * .18, radius, 0);
       ctx.quadraticCurveTo(radius * .45, radius * .035, radius * .12, radius * .10);
       ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.arc(radius, 0, 2, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
     ctx.beginPath(); ctx.arc(0, 0, Math.max(2, radius * .09), 0, Math.PI * 2); ctx.fill();
@@ -196,7 +156,7 @@ export class TunnelRenderer {
         const [x, y] = geometry[index][j];
         if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `hsla(${hue},90%,64%,${intensity * .4})`;
+      ctx.strokeStyle = `hsla(${hue},90%,64%,${intensity * .4 * clamp((FAR - layer.z) / 4, 0, 1)})`;
       ctx.lineWidth = clamp(2.6 / (layer.z + .4), .5, 5);
       ctx.stroke();
     }
@@ -220,7 +180,7 @@ export class TunnelRenderer {
         const [x, y] = geometry[i][strand * 3], [nx, ny] = geometry[i - 1][strand * 3];
         const hue = resting ? 220 : colour(older.power) + Math.sin(a * 3) * 8;
         ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1));
-        ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.12 + older.brightness * .45)})`;
+        ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.12 + older.brightness * .45) * clamp((FAR - older.z) / 4, 0, 1)})`;
         ctx.lineWidth = clamp(3 / (older.z + .5), .55, 6); ctx.stroke();
         // Bright beads produce streaks that enlarge as they approach the viewer.
         if ((older.serial + strand * 3) % Math.round(24 - Math.sqrt(older.power) * 14) === 0) {
@@ -230,7 +190,6 @@ export class TunnelRenderer {
         }
       }
     }
-    this.drawEddies(resting);
     this.drawRotor(signal, resting);
     ctx.globalCompositeOperation = 'source-over';
     const shade = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * .58);

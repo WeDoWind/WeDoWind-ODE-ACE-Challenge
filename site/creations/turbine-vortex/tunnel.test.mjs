@@ -60,26 +60,16 @@ test('curve segments have continuous tangents', () => {
   assert.ok(Math.abs((points[1][0] - a[2]) - (b[0] - points[1][0])) < 1e-10);
   assert.ok(Math.abs((points[1][1] - a[3]) - (b[1] - points[1][1])) < 1e-10);
 });
-test('eddies spin and travel along unchanged smooth trails', () => {
+test('smooth tip trails remain finite and attach to the rotating blade tips', () => {
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
   renderer.width = 1200; renderer.height = 600;
-  const calm = { ...first, z: 10, twist: 0, serial: 12, shedding: 0, turbulence: 0 };
-  const active = { ...calm, shedding: 1, turbulence: 1, curlSign: 1 };
-  assert.deepEqual(renderer.wakePoint(calm, 0), renderer.wakePoint(active, 0));
-  const before = renderer.eddyState(active, 0);
-  renderer.time = 1;
-  const after = renderer.eddyState(active, 0);
-  assert.notEqual(before.spin, after.spin);
-  renderer.time = 1000; const lateSpin = renderer.eddyState(active, 0).spin;
-  renderer.time = 1001;
-  assert.ok(Math.abs((renderer.eddyState(active, 0).spin - lateSpin) - (after.spin - before.spin)) < 1e-10);
-  assert.notEqual(before.x, after.x);
-  assert.notEqual(after.x, renderer.eddyState({ ...active, z: 8 }, 0).x);
-  assert.ok(after.radius <= 30);
-  renderer.memory.layers = [active];
-  const samples = renderer.wakeSamples(active, 0);
-  assert.ok(samples.length > 3 && samples.length <= 17);
-  assert.ok(samples.every(s => s.point.every(Number.isFinite)));
+  renderer.memory.step(.1, first);
+  for (let blade = 0; blade < 3; blade++) {
+    const angle = blade * Math.PI * 2 / 3;
+    const samples = renderer.wakeSamples(first, angle);
+    assert.deepEqual(samples[0].point, renderer.point({ ...first, z: 28, twist: renderer.memory.rotation }, angle));
+    assert.ok(samples.every(s => s.point.every(Number.isFinite)));
+  }
 });
 
 test('calm and strong-wind sessions retain bounded history for an hour', () => {
