@@ -9,13 +9,29 @@ export const powerHue = power => {
   const level = Math.sqrt(clamp(power / 4200));
   return level < .5 ? 280 - level * 180 : 190 - (level - .5) * 300;
 };
-export function visualTargets(reading, windDetail = .5, powerDetail = .5, powerMean = reading.power.value) {
+export function artworkHue(power, colourLevel, dynamic = false) {
+  return powerHue((dynamic ? clamp(colourLevel ?? .5) ** 2 : clamp(power)) * 4200);
+}
+
+export function visualTargets(reading, powerDetail = .5, powerMean = reading.power.value, windChange = 0) {
   const wind = clamp(reading.wind.value / 15);
   const power = clamp(reading.power.value / 4200);
+  const powerChange = clamp((reading.power.value - powerMean) / Math.max(25, Math.abs(powerMean) * .05), -1, 1);
   return { rpm: clamp(reading.rpm.value, 0, 30), wind, power,
     direction: wrapAngle(reading.direction.value),
-    windDetail, powerDetail,
-    brightness: .5 + .35 * clamp((reading.power.value - powerMean) / Math.max(25, Math.abs(powerMean) * .05), -1, 1) };
+    powerDetail,
+    turbulence: Math.sqrt(clamp(Math.abs(windChange) / .5)),
+    brightness: .5 + .35 * powerChange };
+}
+
+export class WindChanges {
+  constructor() { this.last = null; this.rate = 0; }
+  add(signal) {
+    if (this.last && signal.observed <= this.last.observed) return;
+    this.rate = this.last && signal.observed - this.last.observed <= STALE_MS
+      ? (signal.value - this.last.value) / ((signal.observed - this.last.observed) / 1000) : 0;
+    this.last = { ...signal };
+  }
 }
 
 export function parseSignals(data) {
@@ -76,7 +92,6 @@ export class PowerAverage {
     }
     return area / (latest.observed - start);
   }
-  coverageSeconds() { return this.samples.length ? Math.min(30, (this.samples.at(-1).observed - this.samples[0].observed) / 1000) : 0; }
 }
 
 // Quantiles resist spikes; minimum spans resist amplification of sensor noise.

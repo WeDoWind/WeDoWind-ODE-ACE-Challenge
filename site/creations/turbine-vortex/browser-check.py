@@ -68,7 +68,7 @@ def run():
         before_auto = len(requests)
         page.wait_for_timeout(6500)
         assert len(requests) >= before_auto + 2, 'Automatic polling stopped without manual refresh'
-        assert 'kW mean' in page.locator('#power-change').inner_text()
+        assert page.locator('#power-change').count() == 0
         page.evaluate("for(let i=0;i<30;i++) document.querySelector('#refresh').click()")
         page.wait_for_timeout(200)
         page.locator('#pause').click()
@@ -76,6 +76,18 @@ def run():
         frozen = page.locator('canvas').evaluate('(c) => c.toDataURL()')
         page.wait_for_timeout(200)
         assert frozen == page.locator('canvas').evaluate('(c) => c.toDataURL()'), 'Pause did not stop motion'
+        page.locator('#colour-toggle').click()
+        assert page.locator('#colour-toggle').get_attribute('aria-pressed') == 'true'
+        assert 'Colour: dynamic' in page.locator('#colour-scale-status').inner_text()
+        assert page.locator('#power-labels span:not([hidden])').count() == 2
+        dynamic_pixels = page.locator('canvas').evaluate('(c) => c.toDataURL()')
+        assert dynamic_pixels != frozen, 'Palette toggle did not redraw paused artwork'
+        page.wait_for_timeout(200)
+        assert dynamic_pixels == page.locator('canvas').evaluate('(c) => c.toDataURL()'), 'Palette toggle resumed motion'
+        page.locator('#colour-toggle').click()
+        assert page.locator('#colour-toggle').get_attribute('aria-pressed') == 'false'
+        assert 'Colour: fixed' in page.locator('#colour-scale-status').inner_text()
+        assert page.locator('#power-labels span:not([hidden])').count() == 5
         page.locator('#pause').click()
         page.locator('#pause').focus()
         page.keyboard.press('Tab')
@@ -139,8 +151,12 @@ def run():
         live.on('pageerror', lambda error: errors.append(str(error)))
         live.goto(url)
         live.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=30000)
-        live.wait_for_timeout(8000)
+        live.wait_for_timeout(25000)
         live.screenshot(path=str(ROOT / 'site/images/creations/turbine-vortex.png'), full_page=True)
+        live.locator('#colour-toggle').click()
+        live.wait_for_timeout(2000)
+        live.screenshot(path=str(Path(tempfile.gettempdir()) / 'turbine-vortex-dynamic-colour.png'), full_page=True)
+        assert 'Colour: dynamic' in live.locator('#colour-scale-status').inner_text()
         print('Live browser readings:', json.dumps(live.locator('.readings').inner_text(), ensure_ascii=True))
         print('Screenshot:', ROOT / 'site/images/creations/turbine-vortex.png')
         assert not errors, errors

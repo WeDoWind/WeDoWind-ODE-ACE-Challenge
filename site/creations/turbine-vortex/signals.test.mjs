@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, angleDifference, SignalFreshness, PowerAverage } from './signals.mjs';
+import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, artworkHue, angleDifference, SignalFreshness, PowerAverage, WindChanges } from './signals.mjs';
 const now = 1791927600000;
 const fixture = () => ({ series: Object.fromEntries(FIELDS.map(f => [f, [0]])), series_quality: Object.fromEntries(FIELDS.map(f => [f, ['Good']])), series_observed_at: Object.fromEntries(FIELDS.map(f => [f, [now * 1000]])) });
 test('preserves zero, signed power and per-field observation times', () => {
@@ -45,9 +45,9 @@ test('30-second mean is time weighted, ignores duplicates and excludes expired h
   for (let i = 40001; i < 50000; i++) average.add(300, now + i);
   assert.ok(average.samples.length <= 256);
   const read = parseSignals(fixture()); read.power.value = 120;
-  assert.ok(visualTargets(read, .5, .5, 100).brightness > .5);
-  read.power.value = 80; assert.ok(visualTargets(read, .5, .5, 100).brightness < .5);
-  read.power.value = 100; assert.equal(visualTargets(read, .5, .5, 100).brightness, .5);
+  assert.ok(visualTargets(read, .5, 100).brightness > .5);
+  read.power.value = 80; assert.ok(visualTargets(read, .5, 100).brightness < .5);
+  read.power.value = 100; assert.equal(visualTargets(read, .5, 100).brightness, .5);
 });
 test('steady signals resist noise and duplicate observations', () => {
   const range = new AdaptiveRange(250); range.add(200, now, now);
@@ -73,9 +73,33 @@ test('signed vane angles are valid and easing takes the short route across wrapa
 test('absolute meanings stay fixed while recent detail changes', () => {
   const data = fixture(); data.series.wec_wind_speed = [5]; data.series.wec_active_power = [1000];
   const reading = parseSignals(data, now);
-  const calm = visualTargets(reading, 0, 0), lively = visualTargets(reading, 1, 1);
+  const calm = visualTargets(reading, 0), lively = visualTargets(reading, 1);
   assert.equal(calm.wind, lively.wind); assert.equal(calm.power, lively.power);
   assert.equal(calm.brightness, lively.brightness);
   assert.ok(powerHue(0) > powerHue(250)); assert.ok(powerHue(1000) > powerHue(4200));
   assert.equal(visualTargets(parseSignals(fixture(), now)).power, 0);
+});
+test('wind-change effects use observation intervals and ignore duplicate readings', () => {
+  const change = new WindChanges();
+  change.add({ value: 5, observed: now }); assert.equal(change.rate, 0);
+  change.add({ value: 6, observed: now + 2000 }); assert.equal(change.rate, .5);
+  change.add({ value: 12, observed: now + 2000 }); assert.equal(change.rate, .5);
+  change.add({ value: 6, observed: now + 4000 }); assert.equal(change.rate, 0);
+  change.add({ value: 10, observed: now + 70000 }); assert.equal(change.rate, 0);
+  const reading = parseSignals(fixture()); reading.power.value = 150;
+  assert.equal(visualTargets(reading, .5, 100, .5).turbulence, 1);
+  assert.equal(visualTargets(reading, .5, 100, 0).turbulence, 0);
+  assert.ok(visualTargets(reading, .5, 100, .01).turbulence > 0);
+  assert.equal(visualTargets(reading, .5, 100, -.1).turbulence, visualTargets(reading, .5, 100, .1).turbulence);
+});
+
+test('dynamic palette reveals clustered power while fixed colours retain absolute meaning', () => {
+  const range = new AdaptiveRange(25); range.add(100, now);
+  const low = range.normalize(90), high = range.normalize(110);
+  assert.equal(artworkHue(100/4200, .1, false), powerHue(100));
+  assert.equal(artworkHue(100/4200, .9, false), powerHue(100));
+  assert.ok(Math.abs(artworkHue(90/4200, low, true) - artworkHue(110/4200, high, true)) > 150);
+  assert.equal(artworkHue(0, 0, true), 280);
+  assert.equal(artworkHue(1, 1, true), 40);
+  assert.equal(range.span, 25);
 });

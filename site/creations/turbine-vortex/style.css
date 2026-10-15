@@ -199,6 +199,7 @@ margin:13px 8px 0;
 color:#acbdc8;
 font-size:11px}
 .power-labels span{
+white-space:nowrap;
 position:absolute;
 left:var(--at);
 transform:translateX(-50%)}
@@ -337,6 +338,9 @@ height:48px}
 transition:none}
 }
 
-.power-change { display:block; font-size:11px; line-height:1.5; color:#b8c9d2; margin-top:6px; max-width:180px; }
 
 main:fullscreen .art-caption { display:none; }
+
+.colour-scale-status { font-size:11px; line-height:1.6; color:#a8b9c5; margin:12px 0 0; }
+#colour-toggle[aria-pressed="true"] { background:#263a46; border-color:#9fc8d6; }
+.power-labels [hidden] { display:none; }
