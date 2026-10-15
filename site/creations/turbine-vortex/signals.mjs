@@ -17,7 +17,7 @@ export function visualTargets(reading, windDetail = .5, powerDetail = .5, powerM
     direction: wrapAngle(reading.direction.value),
     windDetail, powerDetail,
     shedding: Math.abs(powerChange), curlSign: powerChange < 0 ? -1 : 1,
-    turbulence: clamp(Math.abs(windChange) / .5),
+    turbulence: Math.sqrt(clamp(Math.abs(windChange) / .5)),
     brightness: .5 + .35 * powerChange };
 }
 

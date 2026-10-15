@@ -88,6 +88,9 @@ test('wind-change effects use observation intervals and ignore duplicate reading
   change.add({ value: 10, observed: now + 70000 }); assert.equal(change.rate, 0);
   const reading = parseSignals(fixture()); reading.power.value = 150;
   assert.equal(visualTargets(reading, .5, .5, 100, .5).turbulence, 1);
+  assert.equal(visualTargets(reading, .5, .5, 100, 0).turbulence, 0);
+  assert.ok(visualTargets(reading, .5, .5, 100, .01).turbulence > 0);
+  assert.equal(visualTargets(reading, .5, .5, 100, -.1).turbulence, visualTargets(reading, .5, .5, 100, .1).turbulence);
   assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 1);
   reading.power.value = 100;
   assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 0);

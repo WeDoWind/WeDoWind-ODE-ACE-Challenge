@@ -4,11 +4,14 @@ const FAR = 28, NEAR = .45, EMIT_SECONDS = .65;
 const colour = power => powerHue(power * 4200);
 
 // Catmull–Rom controls keep adjoining screen-space curve tangents continuous.
-export function curveControls(points, index) {
+export function curveControls(points, index, angularity = 0) {
   const p0 = points[Math.max(0, index - 1)], p1 = points[index];
   const p2 = points[index + 1], p3 = points[Math.min(points.length - 1, index + 2)];
-  return [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6,
+  const smooth = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6,
     p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, ...p2];
+  const straight = [p1[0] + (p2[0] - p1[0]) / 3, p1[1] + (p2[1] - p1[1]) / 3,
+    p1[0] + (p2[0] - p1[0]) * 2 / 3, p1[1] + (p2[1] - p1[1]) * 2 / 3, ...p2];
+  return smooth.map((value, i) => value + (straight[i] - value) * clamp(angularity));
 }
 
 // Every emitted cross-section keeps its own colour, wind speed and rotation.
@@ -39,13 +42,21 @@ export class TunnelMemory {
 
 export class TunnelRenderer {
   constructor(canvas) {
-    this.canvas = canvas; this.ctx = canvas.getContext('2d');
+    this.canvas = canvas;
+    // Persist only the wake. Rotor blades are composited fresh, never smeared into a halo.
+    this.wakeCanvas = canvas.ownerDocument?.createElement('canvas') ?? null;
+    this.displayCtx = canvas.getContext('2d');
+    this.ctx = this.wakeCanvas?.getContext('2d') ?? this.displayCtx;
     this.width = 1; this.height = 1; // First RAF can precede the ResizeObserver callback.
     this.memory = new TunnelMemory(); this.time = 0; this.lastResting = null;
   }
   resize(width, height, dpr) {
     this.width = width; this.height = height;
     this.canvas.width = Math.round(width * dpr); this.canvas.height = Math.round(height * dpr);
+    this.displayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.wakeCanvas) {
+      this.wakeCanvas.width = this.canvas.width; this.wakeCanvas.height = this.canvas.height;
+    }
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.fillStyle = '#03050c'; this.ctx.fillRect(0, 0, width, height);
     this.lastResting = null;
@@ -66,7 +77,19 @@ export class TunnelRenderer {
     const { cx, cy, radius } = this.circle(layer);
     const twist = layer.twist + (FAR - layer.z) * .14;
     const theta = a + twist;
-    return [cx + Math.cos(theta) * radius, cy + Math.sin(theta) * radius];
+    // Blend a circle into a retained, irregular 12-sided cross-section.
+    // No deformation at the rotor: all three wake strands meet their blade tips.
+    const roughness = clamp(layer.turbulence ?? 0) * clamp((FAR - layer.z) / 3);
+    const sector = Math.PI * 2 / 12, vertex = Math.floor(a / sector), fraction = a / sector - vertex;
+    const corner = index => {
+      const angle = index * sector;
+      const r = radius * (1 + .12 * Math.sin(index * Math.PI * 2 / 3 + layer.twist * 1.7));
+      return [Math.cos(angle + twist) * r, Math.sin(angle + twist) * r];
+    };
+    const left = corner(vertex), right = corner(vertex + 1);
+    const x = Math.cos(theta) * radius, y = Math.sin(theta) * radius;
+    return [cx + x + (left[0] + (right[0] - left[0]) * fraction - x) * roughness,
+      cy + y + (left[1] + (right[1] - left[1]) * fraction - y) * roughness];
   }
   wakePoint(layer, a) {
     return this.point(layer, a);
@@ -77,10 +100,11 @@ export class TunnelRenderer {
     const samples = [{ point: this.wakePoint(source, a), layer: source }];
     for (let i = 1; i < nodes.length; i++) {
       const from = nodes[i - 1], to = nodes[i];
-      const count = clamp(Math.ceil(Math.max(Math.abs(to.twist - from.twist) * 8, Math.abs(to.z - from.z) * 6)), 3, 16);
+      const detail = clamp(Math.ceil(Math.max(Math.abs(to.twist - from.twist) * 8, Math.abs(to.z - from.z) * 6)), 3, 16);
+      const count = Math.max(1, Math.round(detail * (1 - clamp(to.turbulence ?? 0))));
       for (let j = 1; j <= count; j++) {
         const t = j / count, layer = { ...to };
-        for (const key of ['z', 'twist', 'power', 'brightness']) {
+        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence']) {
           const start = from[key] ?? 0, end = to[key] ?? 0;
           layer[key] = start + (end - start) * t;
         }
@@ -94,7 +118,7 @@ export class TunnelRenderer {
     this.memory.layers = this.memory.layers.filter(layer => {
       const { cx, cy, radius } = this.circle(layer);
       const corner = Math.max(...[[0,0],[this.width,0],[0,this.height],[this.width,this.height]].map(([x,y]) => Math.hypot(x-cx,y-cy)));
-      return radius <= corner + 8;
+      return radius * (1 - .25 * clamp(layer.turbulence ?? 0)) <= corner + 8;
     });
   }
   drawRotor(signal, resting) {
@@ -104,11 +128,6 @@ export class TunnelRenderer {
     const hue = resting ? 220 : colour(signal.power);
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.memory.rotation);
     ctx.globalCompositeOperation = 'source-over';
-    // A feathered clearing removes the tight wake collar without a visible disk edge.
-    const clearing = ctx.createRadialGradient(0, 0, radius * .95, 0, 0, radius * 2);
-    clearing.addColorStop(0, '#03050c'); clearing.addColorStop(1, 'rgba(3,5,12,0)');
-    ctx.fillStyle = clearing;
-    ctx.fillRect(-radius * 2, -radius * 2, radius * 4, radius * 4);
     ctx.fillStyle = `hsla(${hue},65%,80%,${resting ? .2 : .85})`;
     ctx.strokeStyle = `hsla(${hue},90%,75%,${resting ? .15 : .9})`;
     ctx.lineWidth = 1;
@@ -123,22 +142,46 @@ export class TunnelRenderer {
     ctx.beginPath(); ctx.arc(0, 0, Math.max(2, radius * .09), 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
+  present(signal, rotor = false) {
+    if (this.wakeCanvas) {
+      this.displayCtx.globalCompositeOperation = 'source-over';
+      this.displayCtx.drawImage(this.wakeCanvas, 0, 0, this.width, this.height);
+    }
+    if (rotor) {
+      const wakeCtx = this.ctx;
+      this.ctx = this.displayCtx;
+      this.drawRotor(signal, false);
+      this.ctx = wakeCtx;
+    }
+  }
+  drawStraightTunnel() {
+    const { ctx, width: w, height: h } = this;
+    const cx = w / 2, cy = h / 2;
+    ctx.strokeStyle = '#263953'; ctx.lineWidth = 1;
+    for (let i = 0; i < 23; i++) {
+      const r = Math.min(w, h) * .025 * Math.pow(1.22, i);
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    }
+    for (let i = 0; i < 24; i++) {
+      const angle = i * Math.PI * 2 / 24, r = Math.hypot(w, h);
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(angle) * 12, cy + Math.sin(angle) * 12);
+      ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r); ctx.stroke();
+    }
+  }
   render(dt, signal, { active, resting, force = false }) {
     if (!active && !force && this.lastResting === resting) return;
     const { ctx, width: w, height: h } = this;
     if (active) { this.time += dt; this.memory.step(dt, signal); this.discardOffscreen(); }
+    const stateChanged = this.lastResting !== resting;
     this.lastResting = resting;
     ctx.globalCompositeOperation = 'source-over';
     // Frame-rate-independent phosphor persistence: echoes remain for about 1.5s.
-    const fade = active && !force ? 1 - Math.exp(-dt / .26) : 1;
+    const fade = active && !force && !stateChanged && !resting ? 1 - Math.exp(-dt / .26) : 1;
     ctx.fillStyle = `rgba(3,5,12,${fade})`; ctx.fillRect(0, 0, w, h);
     const layers = this.memory.layers;
-    if (!layers.length) {
-      ctx.strokeStyle = '#263953'; ctx.lineWidth = 1;
-      for (let i = 0; i < 18; i++) {
-        const r = 12 * Math.pow(1.22, i);
-        ctx.beginPath(); ctx.arc(w * .52, h * .53, r, 0, Math.PI * 2); ctx.stroke();
-      }
+    if (resting || !layers.length) {
+      this.drawStraightTunnel();
+      this.present(signal);
       return;
     }
     ctx.globalCompositeOperation = 'lighter';
@@ -166,7 +209,7 @@ export class TunnelRenderer {
       const points = samples.map(sample => sample.point);
       for (let i = 0; i < samples.length - 1; i++) {
         const layer = samples[i + 1].layer;
-        ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i));
+        ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i, layer.turbulence ?? 0));
         ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.15 + layer.brightness * .75)})`;
         ctx.lineWidth = clamp(12 / (layer.z + .5), 1.2, 7); ctx.stroke();
       }
@@ -179,7 +222,7 @@ export class TunnelRenderer {
         const older = layers[i], newer = layers[i - 1];
         const [x, y] = geometry[i][strand * 3], [nx, ny] = geometry[i - 1][strand * 3];
         const hue = resting ? 220 : colour(older.power) + Math.sin(a * 3) * 8;
-        ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1));
+        ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1, older.turbulence ?? 0));
         ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.12 + older.brightness * .45) * clamp((FAR - older.z) / 4, 0, 1)})`;
         ctx.lineWidth = clamp(3 / (older.z + .5), .55, 6); ctx.stroke();
         // Bright beads produce streaks that enlarge as they approach the viewer.
@@ -190,10 +233,10 @@ export class TunnelRenderer {
         }
       }
     }
-    this.drawRotor(signal, resting);
     ctx.globalCompositeOperation = 'source-over';
     const shade = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * .58);
     shade.addColorStop(0, 'rgba(2,3,9,.1)'); shade.addColorStop(.35, 'transparent'); shade.addColorStop(1, 'rgba(2,3,9,.5)');
     ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
+    this.present(signal, true);
   }
 }
