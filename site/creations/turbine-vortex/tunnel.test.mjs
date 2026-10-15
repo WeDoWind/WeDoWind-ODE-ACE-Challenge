@@ -112,7 +112,7 @@ test('no-data view ignores retained twist and draws only a centred straight tunn
   assert.ok(!calls.some(call => ['bezierCurveTo', 'quadraticCurveTo', 'rotate', 'createRadialGradient'].includes(call[0])));
 });
 
-test('rotor is composited separately from persistent wake without a dark mask', () => {
+test('wake is displayed without a rotor graphic or dark mask', () => {
   const wakeCalls = [], displayCalls = [];
   const context = calls => new Proxy({}, {
     get: (_, key) => key === 'createRadialGradient' ? () => ({ addColorStop() {} }) : (...args) => calls.push([key, ...args]),
@@ -125,7 +125,7 @@ test('rotor is composited separately from persistent wake without a dark mask', 
   renderer.render(.1, first, { active: true, resting: false });
   assert.equal(wake.width, 1600); assert.equal(wake.height, 1200);
   assert.ok(displayCalls.some(call => call[0] === 'drawImage'));
-  assert.equal(displayCalls.filter(call => call[0] === 'quadraticCurveTo').length, 6);
+  assert.equal(displayCalls.filter(call => call[0] === 'quadraticCurveTo').length, 0);
   assert.ok(!wakeCalls.some(call => call[0] === 'quadraticCurveTo'));
   assert.ok(!displayCalls.some(call => call[0] === 'fillRect'));
 });

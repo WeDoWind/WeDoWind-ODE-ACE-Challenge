@@ -45,7 +45,7 @@ export class TunnelMemory {
 export class TunnelRenderer {
   constructor(canvas) {
     this.canvas = canvas;
-    // Persist only the wake. Rotor blades are composited fresh, never smeared into a halo.
+    // Keep the persistent wake in a fixed, reusable canvas buffer.
     this.wakeCanvas = canvas.ownerDocument?.createElement('canvas') ?? null;
     this.displayCtx = canvas.getContext('2d');
     this.ctx = this.wakeCanvas?.getContext('2d') ?? this.displayCtx;
@@ -129,39 +129,13 @@ export class TunnelRenderer {
       return radius * (1 - .25 * clamp(layer.turbulence ?? 0)) <= corner + 8;
     });
   }
-  drawRotor(signal, resting) {
-    const { ctx } = this;
-    const source = { ...signal, depthTwist: 1, z: FAR, twist: this.memory.rotation };
-    const { cx, cy, radius } = this.circle(source);
-    const hue = resting ? 220 : colour(signal.power);
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.memory.rotation);
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `hsla(${hue},65%,80%,${resting ? .2 : .85})`;
-    ctx.strokeStyle = `hsla(${hue},90%,75%,${resting ? .15 : .9})`;
-    ctx.lineWidth = 1;
-    for (let blade = 0; blade < 3; blade++) {
-      ctx.save(); ctx.rotate(blade * Math.PI * 2 / 3);
-      ctx.beginPath(); ctx.moveTo(radius * .06, -radius * .06);
-      ctx.quadraticCurveTo(radius * .4, -radius * .18, radius, 0);
-      ctx.quadraticCurveTo(radius * .45, radius * .035, radius * .12, radius * .10);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.restore();
-    }
-    ctx.beginPath(); ctx.arc(0, 0, Math.max(2, radius * .09), 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-  present(signal, rotor = false) {
+  present() {
     if (this.wakeCanvas) {
       this.displayCtx.globalCompositeOperation = 'source-over';
       this.displayCtx.drawImage(this.wakeCanvas, 0, 0, this.width, this.height);
     }
-    if (rotor) {
-      const wakeCtx = this.ctx;
-      this.ctx = this.displayCtx;
-      this.drawRotor(signal, false);
-      this.ctx = wakeCtx;
-    }
   }
+
   drawStraightTunnel() {
     const { ctx, width: w, height: h } = this;
     const cx = w / 2, cy = h / 2;
@@ -189,7 +163,7 @@ export class TunnelRenderer {
     const layers = this.memory.layers;
     if (resting || !layers.length) {
       this.drawStraightTunnel();
-      this.present(signal);
+      this.present();
       return;
     }
     ctx.globalCompositeOperation = 'lighter';
@@ -245,6 +219,6 @@ export class TunnelRenderer {
     const shade = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * .58);
     shade.addColorStop(0, 'rgba(2,3,9,.1)'); shade.addColorStop(.35, 'transparent'); shade.addColorStop(1, 'rgba(2,3,9,.5)');
     ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
-    this.present(signal, true);
+    this.present();
   }
 }
