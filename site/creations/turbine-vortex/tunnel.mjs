@@ -87,17 +87,21 @@ export class TunnelRenderer {
     const theta = a + twist;
     // Blend a circle into a retained, irregular 12-sided cross-section.
     // No deformation at the rotor: all three wake strands meet their blade tips.
-    const roughness = clamp(layer.turbulence ?? 0) * clamp((FAR - layer.z) / 3);
+    const roughness = clamp((layer.turbulence ?? 0) * 1.8) * clamp((FAR - layer.z) / 3);
     const sector = Math.PI * 2 / 12, vertex = Math.floor(a / sector), fraction = a / sector - vertex;
     const corner = index => {
       const angle = index * sector;
-      const r = radius * (1 + .12 * Math.sin(index * Math.PI * 2 / 3 + layer.twist * 1.7));
+      const r = radius * (1 + .22 * Math.sin(index * Math.PI * 2 / 3 + layer.twist * 1.7));
       return [Math.cos(angle + twist) * r, Math.sin(angle + twist) * r];
     };
     const left = corner(vertex), right = corner(vertex + 1);
     const x = Math.cos(theta) * radius, y = Math.sin(theta) * radius;
     return [cx + x + (left[0] + (right[0] - left[0]) * fraction - x) * roughness,
       cy + y + (left[1] + (right[1] - left[1]) * fraction - y) * roughness];
+  }
+  wallPoint(layer, a) {
+    // The enclosing walls turn gently; the three secondary trails retain full RPM.
+    return this.point({ ...layer, twist: layer.twist * .18, depthTwist: (layer.depthTwist ?? 1) * .25 }, a);
   }
   wakePoint(layer, a) {
     return this.point(layer, a);
@@ -126,7 +130,7 @@ export class TunnelRenderer {
     this.memory.layers = this.memory.layers.filter(layer => {
       const { cx, cy, radius } = this.circle(layer);
       const corner = Math.max(...[[0,0],[this.width,0],[0,this.height],[this.width,this.height]].map(([x,y]) => Math.hypot(x-cx,y-cy)));
-      return radius * (1 - .25 * clamp(layer.turbulence ?? 0)) <= corner + 8;
+      return radius * (1 - .32 * clamp((layer.turbulence ?? 0) * 1.8)) <= corner + 8;
     });
   }
   present() {
@@ -170,7 +174,7 @@ export class TunnelRenderer {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const attenuation = resting ? .14 : 1;
     // Project each point once; wall filaments reuse the same geometry.
-    const geometry = layers.map(layer => Array.from({ length: 97 }, (_, j) => this.point(layer, j / 96 * Math.PI * 2)));
+    const geometry = layers.map(layer => Array.from({ length: 97 }, (_, j) => this.wallPoint(layer, j / 96 * Math.PI * 2)));
     // History rings expand in perspective, then pass outside the viewport.
     for (const [index, layer] of layers.entries()) {
       const ripple = .88 + .12 * Math.sin(layer.twist * 2 + layer.z * (.4 + layer.wind));
@@ -181,19 +185,19 @@ export class TunnelRenderer {
         const [x, y] = geometry[index][j];
         if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `hsla(${hue},90%,64%,${intensity * .4 * clamp((FAR - layer.z) / 4, 0, 1)})`;
-      ctx.lineWidth = clamp(2.6 / (layer.z + .4), .5, 5);
+      ctx.strokeStyle = `hsla(${hue},90%,64%,${intensity * .65 * clamp((FAR - layer.z) / 4, 0, 1)})`;
+      ctx.lineWidth = clamp(5 / (layer.z + .4), .8, 5);
       ctx.stroke();
     }
-    // Three principal wake strands begin at the tips of the rotating rotor.
+    // Three subtle secondary trails retain the measured rotor rotation.
     for (let blade = 0; blade < 3; blade++) {
       const samples = this.wakeSamples(signal, blade * Math.PI * 2 / 3);
       const points = samples.map(sample => sample.point);
       for (let i = 0; i < samples.length - 1; i++) {
         const layer = samples[i + 1].layer;
         ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i, layer.turbulence ?? 0));
-        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.15 + layer.brightness * .75)})`;
-        ctx.lineWidth = clamp(12 / (layer.z + .5), 1.2, 7); ctx.stroke();
+        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.025 + layer.brightness * .12)})`;
+        ctx.lineWidth = clamp(5 / (layer.z + .5), .6, 3); ctx.stroke();
       }
     }
     // Twisting wall filaments connect the remembered readings into a tunnel.
@@ -204,9 +208,9 @@ export class TunnelRenderer {
         const older = layers[i], newer = layers[i - 1];
         const [x, y] = geometry[i][strand * 3], [nx, ny] = geometry[i - 1][strand * 3];
         const hue = resting ? 220 : colour(older.power) + Math.sin(a * 3) * 8;
-        ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1, older.turbulence ?? 0));
-        ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.12 + older.brightness * .45) * clamp((FAR - older.z) / 4, 0, 1)})`;
-        ctx.lineWidth = clamp(3 / (older.z + .5), .55, 6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1, clamp((older.turbulence ?? 0) * 1.8)));
+        ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.16 + older.brightness * .55) * clamp((FAR - older.z) / 4, 0, 1)})`;
+        ctx.lineWidth = clamp(4 / (older.z + .5), .7, 6); ctx.stroke();
         // Bright beads produce streaks that enlarge as they approach the viewer.
         if ((older.serial + strand * 3) % Math.round(24 - Math.sqrt(older.power) * 14) === 0) {
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (x - nx) * .65, y + (y - ny) * .65);

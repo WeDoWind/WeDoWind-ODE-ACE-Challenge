@@ -178,3 +178,13 @@ test('expanded perspective preserves rotor size and spreads distant turns by 4',
   const radii = [28,24,18,10,2].map(z => renderer.circle({ z }).radius);
   assert.ok(radii.every((radius, i) => i === 0 || radius > radii[i - 1]));
 });
+
+test('walls turn gently while secondary trails retain the complete rotor angle', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  renderer.width = 1200; renderer.height = 600;
+  const layer = { ...first, z: 14, twist: 1, depthTwist: 0, direction: 0, turbulence: 0 };
+  const wall = renderer.wallPoint(layer, 0), trail = renderer.wakePoint(layer, 0);
+  assert.ok(Math.abs(Math.atan2(wall[1] - 300, wall[0] - 600) - .18) < 1e-10);
+  assert.ok(Math.abs(Math.atan2(trail[1] - 300, trail[0] - 600) - 1) < 1e-10);
+  assert.deepEqual(renderer.wallPoint({ ...layer, twist: 0 }, 0), renderer.wakePoint({ ...layer, twist: 0 }, 0));
+});
