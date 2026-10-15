@@ -18,10 +18,12 @@ export function curveControls(points, index, angularity = 0) {
 // Startup geometry shares the first real observation; it does not invent a past feed.
 export class TunnelMemory {
   constructor() { this.layers = []; this.elapsed = 0; this.rotation = 0; this.serial = 0; }
-  layer(z, signal) { return { z, ...signal, twist: this.rotation, serial: this.serial++ }; }
+  layer(z, signal) { return { z, depthTwist: 1, ...signal, twist: this.rotation, serial: this.serial++ }; }
   step(dt, signal) {
     if (!this.layers.length) {
-      for (let z = FAR; z > NEAR; z -= .65) this.layers.push(this.layer(z, signal));
+      for (let z = FAR; z > NEAR; z -= .65) {
+        this.layers.push(this.layer(z, { ...signal, depthTwist: 0, direction: 0, turbulence: 0 }));
+      }
     }
     this.rotation += clamp(signal.rpm, 0, 30) * Math.PI * 2 / 60 * 1.0 * dt;
     const speed = .4 + signal.wind * 1.2;
@@ -77,7 +79,7 @@ export class TunnelRenderer {
   }
   point(layer, a) {
     const { cx, cy, radius } = this.circle(layer);
-    const twist = layer.twist + (FAR - layer.z) * .14;
+    const twist = layer.twist + (FAR - layer.z) * .14 * (layer.depthTwist ?? 1);
     const theta = a + twist;
     // Blend a circle into a retained, irregular 12-sided cross-section.
     // No deformation at the rotor: all three wake strands meet their blade tips.
@@ -97,7 +99,7 @@ export class TunnelRenderer {
     return this.point(layer, a);
   }
   wakeSamples(signal, a) {
-    const source = { ...signal, z: FAR, twist: this.memory.rotation };
+    const source = { ...signal, depthTwist: 1, z: FAR, twist: this.memory.rotation };
     const nodes = [source, ...this.memory.layers];
     const samples = [{ point: this.wakePoint(source, a), layer: source }];
     for (let i = 1; i < nodes.length; i++) {
@@ -106,7 +108,7 @@ export class TunnelRenderer {
       const count = Math.max(1, Math.round(detail * (1 - clamp(to.turbulence ?? 0))));
       for (let j = 1; j <= count; j++) {
         const t = j / count, layer = { ...to };
-        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence']) {
+        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence', 'depthTwist']) {
           const start = from[key] ?? 0, end = to[key] ?? 0;
           layer[key] = start + (end - start) * t;
         }
@@ -125,7 +127,7 @@ export class TunnelRenderer {
   }
   drawRotor(signal, resting) {
     const { ctx } = this;
-    const source = { ...signal, z: FAR, twist: this.memory.rotation };
+    const source = { ...signal, depthTwist: 1, z: FAR, twist: this.memory.rotation };
     const { cx, cy, radius } = this.circle(source);
     const hue = resting ? 220 : colour(signal.power);
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.memory.rotation);

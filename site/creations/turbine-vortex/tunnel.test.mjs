@@ -10,7 +10,7 @@ test('history layers keep original conditions as new readings arrive', () => {
   assert.ok(older.z < initialDepth);
   assert.equal(memory.layers[0].power, .9);
   assert.equal(memory.layers[0].observed, 2000);
-  assert.equal(older.direction, -12); assert.equal(memory.layers[0].direction, 30);
+  assert.equal(older.direction, 0); assert.equal(memory.layers[0].direction, 30);
 });
 test('cross-sections are circular and fully offscreen layers are discarded', () => {
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
@@ -147,4 +147,22 @@ test('rotor stays centred for every direction and neutral wind gives a straight 
     assert.ok(left.cx < width / 2 && right.cx > width / 2);
     assert.equal(left.cy, right.cy);
   }
+});
+
+test('startup lines are straight and live layers progressively introduce the vortex', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  renderer.width = 1200; renderer.height = 600;
+  const signal = { ...first, direction: 30, turbulence: 1 };
+  renderer.memory.step(0, signal);
+  for (const layer of renderer.memory.layers) {
+    assert.equal(layer.depthTwist, 0);
+    assert.equal(layer.direction, 0); assert.equal(layer.turbulence, 0);
+    const point = renderer.point(layer, Math.PI / 3);
+    assert.ok(Math.abs(Math.atan2(point[1] - 300, point[0] - 600) - Math.PI / 3) < 1e-10);
+  }
+  renderer.memory.step(.7, signal);
+  assert.equal(renderer.memory.layers[0].depthTwist, 1);
+  assert.equal(renderer.memory.layers[0].direction, 30);
+  assert.equal(renderer.memory.layers[0].turbulence, 1);
+  assert.ok(renderer.memory.layers.some(layer => layer.depthTwist === 0));
 });
