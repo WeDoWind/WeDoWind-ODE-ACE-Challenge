@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TunnelMemory, TunnelRenderer } from './tunnel.mjs';
+import { TunnelMemory, TunnelRenderer, curveControls } from './tunnel.mjs';
 const first = { rpm: 6, wind: .2, power: .1, brightness: .5, observed: 1000, direction: -12 };
 test('history layers keep original conditions as new readings arrive', () => {
   const memory = new TunnelMemory(); memory.step(.1, first);
@@ -41,6 +41,38 @@ test('1.0 multiplier gives one revolution in five seconds at a steady 12 RPM', (
   const memory = new TunnelMemory();
   for (let i = 0; i < 150; i++) memory.step(1 / 30, { ...first, rpm: 12 });
   assert.ok(Math.abs(memory.rotation - 2 * Math.PI) < 1e-10);
+});
+test('bend scale is independent of aspect ratio', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  const layer = { ...first, z: 14, twist: 0, direction: 45 };
+  renderer.width = 1200; renderer.height = 600;
+  const a = renderer.circle(layer);
+  renderer.width = 600; renderer.height = 1200;
+  const b = renderer.circle(layer);
+  assert.equal(a.radius, b.radius);
+  assert.ok(Math.abs((a.cx - 600) - (b.cx - 300)) < 1e-10);
+  assert.ok(Math.abs((a.cy - 300) - (b.cy - 600)) < 1e-10);
+});
+test('curve segments have continuous tangents', () => {
+  const points = [[0,0],[2,3],[5,2],[8,5]];
+  const a = curveControls(points, 0), b = curveControls(points, 1);
+  assert.deepEqual(a.slice(4), points[1]);
+  assert.ok(Math.abs((points[1][0] - a[2]) - (b[0] - points[1][0])) < 1e-10);
+  assert.ok(Math.abs((points[1][1] - a[3]) - (b[1] - points[1][1])) < 1e-10);
+});
+test('wake deformation grows downstream without detaching blade tips', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  renderer.width = 1200; renderer.height = 600;
+  const calm = { ...first, z: 28, twist: 0, shedding: 0, turbulence: 0 };
+  const active = { ...calm, shedding: 1, turbulence: 1, curlSign: 1 };
+  assert.deepEqual(renderer.wakePoint(calm, 0), renderer.wakePoint(active, 0));
+  const down = { ...active, z: 10 };
+  assert.notDeepEqual(renderer.wakePoint(down, 0), renderer.wakePoint({ ...down, shedding: 0 }, 0));
+  assert.notDeepEqual(renderer.point(down, .2), renderer.point({ ...down, turbulence: 0 }, .2));
+  renderer.memory.layers = [down];
+  const samples = renderer.wakeSamples(active, 0);
+  assert.ok(samples.length > 3 && samples.length <= 17);
+  assert.ok(samples.every(s => s.point.every(Number.isFinite)));
 });
 test('calm and strong-wind sessions retain bounded history for an hour', () => {
   for (const wind of [0, 1]) {

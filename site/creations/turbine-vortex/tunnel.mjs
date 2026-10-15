@@ -1,7 +1,15 @@
-import { clamp, powerHue } from './signals.mjs';
+import { clamp, powerHue, angleDifference } from './signals.mjs';
 
 const FAR = 28, NEAR = .45, EMIT_SECONDS = .65;
 const colour = power => powerHue(power * 4200);
+
+// Catmull–Rom controls keep adjoining screen-space curve tangents continuous.
+export function curveControls(points, index) {
+  const p0 = points[Math.max(0, index - 1)], p1 = points[index];
+  const p2 = points[index + 1], p3 = points[Math.min(points.length - 1, index + 2)];
+  return [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6,
+    p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, ...p2];
+}
 
 // Every emitted cross-section keeps its own colour, wind deformation and rotation.
 // Startup geometry shares the first real observation; it does not invent a past feed.
@@ -44,26 +52,63 @@ export class TunnelRenderer {
   }
   circle(layer) {
     const { width: w, height: h } = this;
-    const depth = 1 / (layer.z + .2), scale = Math.max(w, h) * .86 * depth;
+    const unit = Math.min(w, h) * 1.25;
+    const depth = 1 / (layer.z + .2), scale = unit * depth;
     const distant = layer.z / FAR;
     // Historical vane angles shape the path; this screen mapping is not a compass.
     const heading = (layer.direction ?? 0) * Math.PI / 180;
     const bend = Math.pow(distant, .8);
-    const cx = w * .52 + Math.sin(heading) * w * .24 * bend;
-    const cy = h * .53 - Math.cos(heading) * h * .16 * bend;
+    const cx = w / 2 + Math.sin(heading) * unit * .20 * bend;
+    const cy = h / 2 - Math.cos(heading) * unit * .20 * bend;
     return { cx, cy, radius: scale };
   }
   point(layer, a) {
     const { cx, cy, radius } = this.circle(layer);
     const twist = layer.twist + (FAR - layer.z) * .14;
-    const theta = a + twist;
-    return [cx + Math.cos(theta) * radius, cy + Math.sin(theta) * radius];
+    const distance = FAR - layer.z, envelope = 1 - Math.exp(-Math.max(0, distance) / 3);
+    const roughness = (layer.turbulence ?? 0) * envelope;
+    const ripple = 1 + roughness * (.085 * Math.sin(a * 9 + distance * 1.2 + layer.twist)
+      + .035 * Math.sin(a * 17 - distance * 2.1));
+    const theta = a + twist + roughness * .035 * Math.sin(a * 7 + distance);
+    return [cx + Math.cos(theta) * radius * ripple, cy + Math.sin(theta) * radius * ripple];
+  }
+  wakePoint(layer, a) {
+    const point = this.point(layer, a), { cx, cy, radius } = this.circle(layer);
+    const distance = Math.max(0, FAR - layer.z), envelope = 1 - Math.exp(-distance / 3);
+    const amplitude = radius * .12 * (layer.shedding ?? 0) * envelope;
+    const phase = distance * 3.4 + a * 2;
+    const theta = Math.atan2(point[1] - cy, point[0] - cx);
+    const radial = amplitude * (Math.cos(phase) - 1);
+    const tangent = amplitude * Math.sin(phase) * (layer.curlSign ?? 1);
+    return [point[0] + Math.cos(theta) * radial - Math.sin(theta) * tangent,
+      point[1] + Math.sin(theta) * radial + Math.cos(theta) * tangent];
+  }
+  wakeSamples(signal, a) {
+    const source = { ...signal, z: FAR, twist: this.memory.rotation };
+    const nodes = [source, ...this.memory.layers];
+    const samples = [{ point: this.wakePoint(source, a), layer: source }];
+    for (let i = 1; i < nodes.length; i++) {
+      const from = nodes[i - 1], to = nodes[i];
+      const count = clamp(Math.ceil(Math.max(Math.abs(to.twist - from.twist) * 8, Math.abs(to.z - from.z) * 6)), 3, 16);
+      for (let j = 1; j <= count; j++) {
+        const t = j / count, layer = { ...to };
+        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence', 'shedding', 'curlSign']) {
+          const start = from[key] ?? (key === 'curlSign' ? 1 : 0), end = to[key] ?? (key === 'curlSign' ? 1 : 0);
+          layer[key] = start + (end - start) * t;
+        }
+        layer.direction = (from.direction ?? 0) + angleDifference(to.direction ?? 0, from.direction ?? 0) * t;
+        samples.push({ point: this.wakePoint(layer, a), layer });
+      }
+    }
+    return samples;
   }
   discardOffscreen() {
     this.memory.layers = this.memory.layers.filter(layer => {
       const { cx, cy, radius } = this.circle(layer);
       const corner = Math.max(...[[0,0],[this.width,0],[0,this.height],[this.width,this.height]].map(([x,y]) => Math.hypot(x-cx,y-cy)));
-      return radius <= corner + 8;
+      // Keep deformation/curl geometry until even its innermost envelope is gone.
+      const inner = 1 - .12 * (layer.turbulence ?? 0) - .26 * (layer.shedding ?? 0);
+      return radius * inner <= corner + 8;
     });
   }
   drawRotor(signal, resting) {
@@ -72,6 +117,9 @@ export class TunnelRenderer {
     const { cx, cy, radius } = this.circle(source);
     const hue = resting ? 220 : colour(signal.power);
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(this.memory.rotation);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(3,5,12,.88)';
+    ctx.beginPath(); ctx.arc(0, 0, radius * .75, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = `hsla(${hue},65%,80%,${resting ? .2 : .85})`;
     ctx.strokeStyle = `hsla(${hue},90%,75%,${resting ? .15 : .9})`;
     ctx.lineWidth = 1;
@@ -106,6 +154,7 @@ export class TunnelRenderer {
       return;
     }
     ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const attenuation = resting ? .14 : 1;
     // Project each point once; wall filaments reuse the same geometry.
     const geometry = layers.map(layer => Array.from({ length: 97 }, (_, j) => this.point(layer, j / 96 * Math.PI * 2)));
@@ -125,24 +174,24 @@ export class TunnelRenderer {
     }
     // Three principal wake strands begin at the tips of the rotating rotor.
     for (let blade = 0; blade < 3; blade++) {
-      const source = { ...signal, z: FAR, twist: this.memory.rotation };
-      let previous = this.point(source, blade * Math.PI * 2 / 3);
-      for (const layer of layers) {
-        const current = this.point(layer, blade * Math.PI * 2 / 3);
-        ctx.beginPath(); ctx.moveTo(...previous); ctx.lineTo(...current);
+      const samples = this.wakeSamples(signal, blade * Math.PI * 2 / 3);
+      const points = samples.map(sample => sample.point);
+      for (let i = 0; i < samples.length - 1; i++) {
+        const layer = samples[i + 1].layer;
+        ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i));
         ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.15 + layer.brightness * .75)})`;
-        ctx.lineWidth = clamp(12 / (layer.z + .5), 1.2, 7); ctx.stroke(); previous = current;
+        ctx.lineWidth = clamp(12 / (layer.z + .5), 1.2, 7); ctx.stroke();
       }
     }
-    this.drawRotor(signal, resting);
     // Twisting wall filaments connect the remembered readings into a tunnel.
     for (let strand = 0; strand < 32; strand++) {
       const a = strand / 32 * Math.PI * 2;
+      const points = geometry.map(ring => ring[strand * 3]);
       for (let i = 1; i < layers.length; i++) {
         const older = layers[i], newer = layers[i - 1];
         const [x, y] = geometry[i][strand * 3], [nx, ny] = geometry[i - 1][strand * 3];
         const hue = resting ? 220 : colour(older.power) + Math.sin(a * 3) * 8;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny);
+        ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1));
         ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.12 + older.brightness * .45)})`;
         ctx.lineWidth = clamp(3 / (older.z + .5), .55, 6); ctx.stroke();
         // Bright beads produce streaks that enlarge as they approach the viewer.
@@ -153,8 +202,9 @@ export class TunnelRenderer {
         }
       }
     }
+    this.drawRotor(signal, resting);
     ctx.globalCompositeOperation = 'source-over';
-    const shade = ctx.createRadialGradient(w * .52, h * .53, 0, w * .52, h * .53, Math.max(w, h) * .58);
+    const shade = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * .58);
     shade.addColorStop(0, 'rgba(2,3,9,.1)'); shade.addColorStop(.35, 'transparent'); shade.addColorStop(1, 'rgba(2,3,9,.5)');
     ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
   }

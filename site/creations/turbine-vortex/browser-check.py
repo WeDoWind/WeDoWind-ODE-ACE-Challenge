@@ -139,7 +139,7 @@ def run():
         live.on('pageerror', lambda error: errors.append(str(error)))
         live.goto(url)
         live.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=30000)
-        live.wait_for_timeout(8000)
+        live.wait_for_timeout(25000)
         live.screenshot(path=str(ROOT / 'site/images/creations/turbine-vortex.png'), full_page=True)
         print('Live browser readings:', json.dumps(live.locator('.readings').inner_text(), ensure_ascii=True))
         print('Screenshot:', ROOT / 'site/images/creations/turbine-vortex.png')

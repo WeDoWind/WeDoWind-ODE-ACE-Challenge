@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, angleDifference, SignalFreshness, PowerAverage } from './signals.mjs';
+import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, angleDifference, SignalFreshness, PowerAverage, WindChanges } from './signals.mjs';
 const now = 1791927600000;
 const fixture = () => ({ series: Object.fromEntries(FIELDS.map(f => [f, [0]])), series_quality: Object.fromEntries(FIELDS.map(f => [f, ['Good']])), series_observed_at: Object.fromEntries(FIELDS.map(f => [f, [now * 1000]])) });
 test('preserves zero, signed power and per-field observation times', () => {
@@ -78,4 +78,17 @@ test('absolute meanings stay fixed while recent detail changes', () => {
   assert.equal(calm.brightness, lively.brightness);
   assert.ok(powerHue(0) > powerHue(250)); assert.ok(powerHue(1000) > powerHue(4200));
   assert.equal(visualTargets(parseSignals(fixture(), now)).power, 0);
+});
+test('wind-change effects use observation intervals and ignore duplicate readings', () => {
+  const change = new WindChanges();
+  change.add({ value: 5, observed: now }); assert.equal(change.rate, 0);
+  change.add({ value: 6, observed: now + 2000 }); assert.equal(change.rate, .5);
+  change.add({ value: 12, observed: now + 2000 }); assert.equal(change.rate, .5);
+  change.add({ value: 6, observed: now + 4000 }); assert.equal(change.rate, 0);
+  change.add({ value: 10, observed: now + 70000 }); assert.equal(change.rate, 0);
+  const reading = parseSignals(fixture()); reading.power.value = 150;
+  assert.equal(visualTargets(reading, .5, .5, 100, .5).turbulence, 1);
+  assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 1);
+  reading.power.value = 100;
+  assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 0);
 });
