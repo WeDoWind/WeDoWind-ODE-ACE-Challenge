@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TunnelMemory } from './tunnel.mjs';
+import { TunnelMemory, TunnelRenderer } from './tunnel.mjs';
 const first = { rpm: 6, wind: .2, power: .1, brightness: .5, observed: 1000, direction: -12 };
 test('history layers keep original conditions as new readings arrive', () => {
   const memory = new TunnelMemory(); memory.step(.1, first);
@@ -11,6 +11,20 @@ test('history layers keep original conditions as new readings arrive', () => {
   assert.equal(memory.layers[0].power, .9);
   assert.equal(memory.layers[0].observed, 2000);
   assert.equal(older.direction, -12); assert.equal(memory.layers[0].direction, 30);
+});
+test('cross-sections are circular and fully offscreen layers are discarded', () => {
+  const renderer = new TunnelRenderer({ getContext: () => ({}) });
+  renderer.width = 1200; renderer.height = 600;
+  const layer = { ...first, z: 10, twist: .5 };
+  const center = renderer.circle(layer);
+  for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    const point = renderer.point(layer, angle);
+    assert.ok(Math.abs(Math.hypot(point[0] - center.cx, point[1] - center.cy) - center.radius) < .00001);
+  }
+  const offscreen = { ...first, z: .1, twist: .5 };
+  renderer.memory.layers = [layer, offscreen]; renderer.discardOffscreen();
+  assert.deepEqual(renderer.memory.layers, [layer]);
+  assert.deepEqual(renderer.memory.timeRange(), { oldest: 1000, newest: 1000 });
 });
 test('older layers leave the screen and memory stays bounded over a long session', () => {
   const memory = new TunnelMemory(); memory.step(.1, first);

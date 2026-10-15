@@ -56,7 +56,8 @@ def run():
         page.route('https://ace-api.duckdns.org/**', respond)
         page.goto(url)
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')")
-        assert 'Clock difference' in page.locator('#observed').inner_text()
+        assert 'Clock difference' not in page.locator('#observed').inner_text()
+        page.wait_for_function("document.querySelector('#observed').textContent.startsWith('Visible history')")
         state['mode'] = 'valid'
         page.reload()
         requests.clear()
@@ -64,6 +65,10 @@ def run():
         page.wait_for_timeout(1000)
         assert page.locator('#rpm').inner_text() == '6.20'
         assert page.locator('#direction').inner_text() == '-12.0'
+        before_auto = len(requests)
+        page.wait_for_timeout(6500)
+        assert len(requests) >= before_auto + 2, 'Automatic polling stopped without manual refresh'
+        assert 'kW mean' in page.locator('#power-change').inner_text()
         page.evaluate("for(let i=0;i<30;i++) document.querySelector('#refresh').click()")
         page.wait_for_timeout(200)
         page.locator('#pause').click()
@@ -136,12 +141,12 @@ def run():
         live.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=30000)
         live.wait_for_timeout(8000)
         live.screenshot(path=str(ROOT / 'site/images/creations/turbine-vortex.png'), full_page=True)
-        print('Live browser readings:', live.locator('.readings').inner_text())
+        print('Live browser readings:', json.dumps(live.locator('.readings').inner_text(), ensure_ascii=True))
         print('Screenshot:', ROOT / 'site/images/creations/turbine-vortex.png')
         assert not errors, errors
         browser.close()
     server.shutdown()
-    print('PASS: clock skew/visible diagnostics, prefix, four live signals, immersion/quiet controls, responsive widths, focus, pause, reduced motion, zero, stale, invalid, offline, recovery, cooldown, Retry-After')
+    print('PASS: data-time history/30s power mean/automatic polling/visible diagnostics, prefix, four live signals, immersion/quiet controls, responsive widths, focus, pause, reduced motion, zero, stale, invalid, offline, recovery, cooldown, Retry-After')
 
 if __name__ == '__main__':
     run()

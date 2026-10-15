@@ -1,7 +1,6 @@
 export const FIELDS = ['wec_rotor_speed', 'wec_wind_speed', 'wec_active_power', 'wec_wind_direction'];
 export const ENDPOINT = `https://ace-api.duckdns.org/v1/sites/ace/assets/wec-1/data/wec_instantaneous/latest?resolution=1s&fields=${FIELDS.join(',')}&limit=1`;
 export const STALE_MS = 60000;
-export const MAX_CLOCK_SKEW_MS = 60000;
 export const WINDOW_MS = 300000;
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
 export const wrapAngle = angle => ((angle + 180) % 360 + 360) % 360 - 180;
@@ -10,16 +9,16 @@ export const powerHue = power => {
   const level = Math.sqrt(clamp(power / 4200));
   return level < .5 ? 280 - level * 180 : 190 - (level - .5) * 300;
 };
-export function visualTargets(reading, windDetail = .5, powerDetail = .5) {
+export function visualTargets(reading, windDetail = .5, powerDetail = .5, powerMean = reading.power.value) {
   const wind = clamp(reading.wind.value / 15);
   const power = clamp(reading.power.value / 4200);
   return { rpm: clamp(reading.rpm.value, 0, 30), wind, power,
     direction: wrapAngle(reading.direction.value),
     windDetail, powerDetail,
-    brightness: .24 + .55 * Math.sqrt(power) };
+    brightness: .5 + .35 * clamp((reading.power.value - powerMean) / Math.max(25, Math.abs(powerMean) * .05), -1, 1) };
 }
 
-export function parseSignals(data, now = Date.now()) {
+export function parseSignals(data) {
   const signals = FIELDS.map(field => {
     const value = data?.series?.[field]?.[0];
     const timestamp = data?.series_observed_at?.[field]?.[0];
@@ -27,19 +26,65 @@ export function parseSignals(data, now = Date.now()) {
     if (String(data?.series_quality?.[field]?.[0]).toLowerCase() !== 'good') throw new Error(`Non-Good quality for ${field}`);
     if (!Number.isFinite(timestamp) || timestamp <= 0 ||
       !Number.isFinite(new Date(timestamp / 1000).getTime())) throw new Error(`Missing or invalid ${field} observation time`);
-    if (timestamp / 1000 > now + MAX_CLOCK_SKEW_MS) throw new Error(`${field} observation is over 60 seconds ahead; check the device clock`);
     if (['wec_rotor_speed', 'wec_wind_speed'].includes(field) && value < 0) throw new Error(`Negative ${field}`);
     return { value, observed: timestamp / 1000 };
   });
-  return { rpm: signals[0], wind: signals[1], power: signals[2], direction: signals[3], oldest: Math.min(...signals.map(s => s.observed)) };
+  const newest = Math.max(...signals.map(s => s.observed));
+  const collected = data?.collection_timestamps?.[0];
+  const collectedMs = Number.isFinite(collected) && collected > 0 ? collected / 1000 : newest;
+  return { rpm: signals[0], wind: signals[1], power: signals[2], direction: signals[3],
+    oldest: Math.min(...signals.map(s => s.observed)), newest, dataTime: Math.max(newest, collectedMs) };
+}
+
+// Freshness uses API-relative ages and monotonic time since each field advanced.
+// Changing the computer's wall clock cannot make data fresh or stale.
+export class SignalFreshness {
+  constructor() { this.fields = new Map(); this.dataTime = 0; }
+  update(reading, now = performance.now()) {
+    this.dataTime = reading.dataTime;
+    for (const key of ['rpm', 'wind', 'power', 'direction']) {
+      const observed = reading[key].observed, previous = this.fields.get(key);
+      if (!previous || observed > previous.observed) this.fields.set(key, { observed, advanced: now, initialAge: Math.max(0, reading.dataTime - observed) });
+    }
+  }
+  stale(now = performance.now()) {
+    return [...this.fields.values()].some(s => Math.max(s.initialAge + now - s.advanced, this.dataTime - s.observed) > STALE_MS);
+  }
+}
+
+// Piecewise-constant, time-weighted trailing mean in observation-time coordinates.
+export class PowerAverage {
+  constructor() { this.samples = []; }
+  add(value, observed) {
+    const last = this.samples.at(-1);
+    if (last && observed <= last.observed) return;
+    if (last && observed - last.observed > STALE_MS) this.samples = [];
+    this.samples.push({ value, observed });
+    this.samples = this.samples.slice(-256);
+    const cutoff = observed - 30000;
+    while (this.samples.length > 1 && this.samples[1].observed <= cutoff) this.samples.shift();
+  }
+  mean() {
+    const latest = this.samples.at(-1);
+    if (!latest) return null;
+    const start = Math.max(latest.observed - 30000, this.samples[0].observed);
+    if (latest.observed === start) return latest.value;
+    let area = 0;
+    for (let i = 0; i < this.samples.length - 1; i++) {
+      const sample = this.samples[i], next = this.samples[i + 1];
+      area += sample.value * Math.max(0, next.observed - Math.max(start, sample.observed));
+    }
+    return area / (latest.observed - start);
+  }
+  coverageSeconds() { return this.samples.length ? Math.min(30, (this.samples.at(-1).observed - this.samples[0].observed) / 1000) : 0; }
 }
 
 // Quantiles resist spikes; minimum spans resist amplification of sensor noise.
 export class AdaptiveRange {
   constructor(minSpan) { this.minSpan = minSpan; this.samples = []; this.center = null; this.span = minSpan; this.last = null; }
-  add(value, observed, now = Date.now()) {
+  add(value, observed, now = observed) {
     this.samples = this.samples.filter(s => s.observed >= now - WINDOW_MS);
-    if (this.last === null || observed > this.last) { this.samples.push({ value, observed }); this.last = observed; }
+    if (this.last === null || observed > this.last) { this.samples.push({ value, observed }); this.samples = this.samples.slice(-512); this.last = observed; }
     const sorted = this.samples.map(s => s.value).sort((a, b) => a - b);
     if (!sorted.length) return;
     const quantile = q => sorted[Math.floor((sorted.length - 1) * q)];
