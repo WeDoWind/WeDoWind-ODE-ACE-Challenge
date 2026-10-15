@@ -65,23 +65,52 @@ export class TunnelRenderer {
   point(layer, a) {
     const { cx, cy, radius } = this.circle(layer);
     const twist = layer.twist + (FAR - layer.z) * .14;
-    const distance = FAR - layer.z, envelope = 1 - Math.exp(-Math.max(0, distance) / 3);
-    const roughness = (layer.turbulence ?? 0) * envelope;
-    const ripple = 1 + roughness * (.085 * Math.sin(a * 9 + distance * 1.2 + layer.twist)
-      + .035 * Math.sin(a * 17 - distance * 2.1));
-    const theta = a + twist + roughness * .035 * Math.sin(a * 7 + distance);
-    return [cx + Math.cos(theta) * radius * ripple, cy + Math.sin(theta) * radius * ripple];
+    const theta = a + twist;
+    return [cx + Math.cos(theta) * radius, cy + Math.sin(theta) * radius];
   }
   wakePoint(layer, a) {
-    const point = this.point(layer, a), { cx, cy, radius } = this.circle(layer);
+    return this.point(layer, a);
+  }
+  eddyState(layer, blade) {
     const distance = Math.max(0, FAR - layer.z), envelope = 1 - Math.exp(-distance / 3);
-    const amplitude = radius * .12 * (layer.shedding ?? 0) * envelope;
-    const phase = distance * 3.4 + a * 2;
-    const theta = Math.atan2(point[1] - cy, point[0] - cx);
-    const radial = amplitude * (Math.cos(phase) - 1);
-    const tangent = amplitude * Math.sin(phase) * (layer.curlSign ?? 1);
-    return [point[0] + Math.cos(theta) * radial - Math.sin(theta) * tangent,
-      point[1] + Math.sin(theta) * radial + Math.cos(theta) * tangent];
+    const strength = (layer.shedding ?? 0) * envelope;
+    const center = this.wakePoint(layer, blade * Math.PI * 2 / 3);
+    const radius = clamp(this.circle(layer).radius * (.035 + strength * .035), 2, 30);
+    const flutter = radius * .45 * (layer.turbulence ?? 0);
+    return { x: center[0] + Math.sin(this.time * 5 + layer.serial + blade) * flutter,
+      y: center[1] + Math.cos(this.time * 6 + layer.serial + blade) * flutter,
+      radius, strength, spin: this.time * (1.5 + (layer.shedding ?? 0) * 4) * (layer.curlSign ?? 1) + layer.serial * .8 + blade };
+  }
+  drawEddies(resting) {
+    const { ctx } = this;
+    for (const layer of this.memory.layers) {
+      if ((layer.shedding ?? 0) < .08) continue;
+      const spacing = Math.round(8 - (layer.shedding ?? 0) * 5);
+      for (let blade = 0; blade < 3; blade++) {
+        if ((layer.serial + blade * 2) % spacing !== 0) continue;
+        const eddy = this.eddyState(layer, blade);
+        if (eddy.strength < .05) continue;
+        ctx.save(); ctx.translate(eddy.x, eddy.y); ctx.rotate(eddy.spin);
+        // A soft dark halo keeps each little whirl readable over the bright wake.
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(3,5,12,${resting ? .15 : .45})`;
+        ctx.beginPath(); ctx.arc(0, 0, eddy.radius * 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power) + 18},90%,82%,${(resting ? .12 : .5 + eddy.strength * .45)})`;
+        ctx.lineWidth = clamp(eddy.radius / 10, .8, 2);
+        for (let arm = 0; arm < 2; arm++) {
+          ctx.beginPath();
+          for (let j = 0; j <= 40; j++) {
+            const t = j / 40, angle = t * Math.PI * 3 + arm * Math.PI;
+            const r = eddy.radius * (.08 + t * .92);
+            const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+            if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
   }
   wakeSamples(signal, a) {
     const source = { ...signal, z: FAR, twist: this.memory.rotation };
@@ -106,9 +135,8 @@ export class TunnelRenderer {
     this.memory.layers = this.memory.layers.filter(layer => {
       const { cx, cy, radius } = this.circle(layer);
       const corner = Math.max(...[[0,0],[this.width,0],[0,this.height],[this.width,this.height]].map(([x,y]) => Math.hypot(x-cx,y-cy)));
-      // Keep deformation/curl geometry until even its innermost envelope is gone.
-      const inner = 1 - .12 * (layer.turbulence ?? 0) - .26 * (layer.shedding ?? 0);
-      return radius * inner <= corner + 8;
+      // Eddies belong to their layer and disappear with it; no particle backlog.
+      return radius <= corner + 52;
     });
   }
   drawRotor(signal, resting) {
@@ -202,6 +230,7 @@ export class TunnelRenderer {
         }
       }
     }
+    this.drawEddies(resting);
     this.drawRotor(signal, resting);
     ctx.globalCompositeOperation = 'source-over';
     const shade = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * .58);
