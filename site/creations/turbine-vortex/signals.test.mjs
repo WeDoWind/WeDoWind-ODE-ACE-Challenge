@@ -45,9 +45,9 @@ test('30-second mean is time weighted, ignores duplicates and excludes expired h
   for (let i = 40001; i < 50000; i++) average.add(300, now + i);
   assert.ok(average.samples.length <= 256);
   const read = parseSignals(fixture()); read.power.value = 120;
-  assert.ok(visualTargets(read, .5, .5, 100).brightness > .5);
-  read.power.value = 80; assert.ok(visualTargets(read, .5, .5, 100).brightness < .5);
-  read.power.value = 100; assert.equal(visualTargets(read, .5, .5, 100).brightness, .5);
+  assert.ok(visualTargets(read, .5, 100).brightness > .5);
+  read.power.value = 80; assert.ok(visualTargets(read, .5, 100).brightness < .5);
+  read.power.value = 100; assert.equal(visualTargets(read, .5, 100).brightness, .5);
 });
 test('steady signals resist noise and duplicate observations', () => {
   const range = new AdaptiveRange(250); range.add(200, now, now);
@@ -73,7 +73,7 @@ test('signed vane angles are valid and easing takes the short route across wrapa
 test('absolute meanings stay fixed while recent detail changes', () => {
   const data = fixture(); data.series.wec_wind_speed = [5]; data.series.wec_active_power = [1000];
   const reading = parseSignals(data, now);
-  const calm = visualTargets(reading, 0, 0), lively = visualTargets(reading, 1, 1);
+  const calm = visualTargets(reading, 0), lively = visualTargets(reading, 1);
   assert.equal(calm.wind, lively.wind); assert.equal(calm.power, lively.power);
   assert.equal(calm.brightness, lively.brightness);
   assert.ok(powerHue(0) > powerHue(250)); assert.ok(powerHue(1000) > powerHue(4200));
@@ -87,13 +87,10 @@ test('wind-change effects use observation intervals and ignore duplicate reading
   change.add({ value: 6, observed: now + 4000 }); assert.equal(change.rate, 0);
   change.add({ value: 10, observed: now + 70000 }); assert.equal(change.rate, 0);
   const reading = parseSignals(fixture()); reading.power.value = 150;
-  assert.equal(visualTargets(reading, .5, .5, 100, .5).turbulence, 1);
-  assert.equal(visualTargets(reading, .5, .5, 100, 0).turbulence, 0);
-  assert.ok(visualTargets(reading, .5, .5, 100, .01).turbulence > 0);
-  assert.equal(visualTargets(reading, .5, .5, 100, -.1).turbulence, visualTargets(reading, .5, .5, 100, .1).turbulence);
-  assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 1);
-  reading.power.value = 100;
-  assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 0);
+  assert.equal(visualTargets(reading, .5, 100, .5).turbulence, 1);
+  assert.equal(visualTargets(reading, .5, 100, 0).turbulence, 0);
+  assert.ok(visualTargets(reading, .5, 100, .01).turbulence > 0);
+  assert.equal(visualTargets(reading, .5, 100, -.1).turbulence, visualTargets(reading, .5, 100, .1).turbulence);
 });
 
 test('dynamic palette reveals clustered power while fixed colours retain absolute meaning', () => {

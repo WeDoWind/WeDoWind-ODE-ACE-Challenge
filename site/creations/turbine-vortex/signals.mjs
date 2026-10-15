@@ -13,14 +13,13 @@ export function artworkHue(power, colourLevel, dynamic = false) {
   return powerHue((dynamic ? clamp(colourLevel ?? .5) ** 2 : clamp(power)) * 4200);
 }
 
-export function visualTargets(reading, windDetail = .5, powerDetail = .5, powerMean = reading.power.value, windChange = 0) {
+export function visualTargets(reading, powerDetail = .5, powerMean = reading.power.value, windChange = 0) {
   const wind = clamp(reading.wind.value / 15);
   const power = clamp(reading.power.value / 4200);
   const powerChange = clamp((reading.power.value - powerMean) / Math.max(25, Math.abs(powerMean) * .05), -1, 1);
   return { rpm: clamp(reading.rpm.value, 0, 30), wind, power,
     direction: wrapAngle(reading.direction.value),
-    windDetail, powerDetail,
-    shedding: Math.abs(powerChange), curlSign: powerChange < 0 ? -1 : 1,
+    powerDetail,
     turbulence: Math.sqrt(clamp(Math.abs(windChange) / .5)),
     brightness: .5 + .35 * powerChange };
 }
@@ -93,7 +92,6 @@ export class PowerAverage {
     }
     return area / (latest.observed - start);
   }
-  coverageSeconds() { return this.samples.length ? Math.min(30, (this.samples.at(-1).observed - this.samples[0].observed) / 1000) : 0; }
 }
 
 // Quantiles resist spikes; minimum spans resist amplification of sensor noise.

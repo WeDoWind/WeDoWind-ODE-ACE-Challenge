@@ -2,7 +2,6 @@ import { clamp, artworkHue, angleDifference } from './signals.mjs';
 
 const FAR = 18, NEAR = .45, EMIT_SECONDS = .65;
 
-
 // Catmull–Rom controls keep adjoining screen-space curve tangents continuous.
 export function curveControls(points, index, angularity = 0) {
   const p0 = points[Math.max(0, index - 1)], p1 = points[index];
@@ -18,14 +17,14 @@ export function curveControls(points, index, angularity = 0) {
 // Startup geometry shares the first real observation; it does not invent a past feed.
 export class TunnelMemory {
   constructor() { this.layers = []; this.elapsed = 0; this.rotation = 0; this.serial = 0; }
-  layer(z, signal) { return { z, depthTwist: 1, ...signal, twist: this.rotation, serial: this.serial++ }; }
+  layer(z, signal) { return { z, ...signal, twist: this.rotation, serial: this.serial++ }; }
   step(dt, signal) {
     if (!this.layers.length) {
       for (let z = FAR; z > NEAR; z -= .65) {
-        this.layers.push(this.layer(z, { ...signal, depthTwist: 0, direction: 0, turbulence: 0 }));
+        this.layers.push(this.layer(z, { ...signal, direction: 0, turbulence: 0 }));
       }
     }
-    this.rotation += clamp(signal.rpm, 0, 30) * Math.PI * 2 / 60 * 1.0 * dt;
+    this.rotation += clamp(signal.rpm, 0, 30) * Math.PI * 2 / 60 * dt;
     const speed = .4 + signal.wind * 1.2;
     for (const layer of this.layers) layer.z -= speed * dt;
     this.layers = this.layers.filter(layer => layer.z > NEAR);
@@ -45,20 +44,13 @@ export class TunnelMemory {
 export class TunnelRenderer {
   constructor(canvas) {
     this.canvas = canvas;
-    // Keep the persistent wake in a fixed, reusable canvas buffer.
-    this.wakeCanvas = canvas.ownerDocument?.createElement('canvas') ?? null;
-    this.displayCtx = canvas.getContext('2d');
-    this.ctx = this.wakeCanvas?.getContext('2d') ?? this.displayCtx;
+    this.ctx = canvas.getContext('2d');
     this.width = 1; this.height = 1; // First RAF can precede the ResizeObserver callback.
     this.memory = new TunnelMemory(); this.time = 0; this.lastResting = null;
   }
   resize(width, height, dpr) {
     this.width = width; this.height = height;
     this.canvas.width = Math.round(width * dpr); this.canvas.height = Math.round(height * dpr);
-    this.displayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (this.wakeCanvas) {
-      this.wakeCanvas.width = this.canvas.width; this.wakeCanvas.height = this.canvas.height;
-    }
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.fillStyle = '#03050c'; this.ctx.fillRect(0, 0, width, height);
     this.lastResting = null;
@@ -103,29 +95,22 @@ export class TunnelRenderer {
     return [cx + x + (left[0] + (right[0] - left[0]) * fraction - x) * roughness,
       cy + y + (left[1] + (right[1] - left[1]) * fraction - y) * roughness];
   }
-  wallPoint(layer, a) {
-    // Walls and the three blade trails share the same retained rotor phase.
-    return this.point(layer, a);
-  }
-  wakePoint(layer, a) {
-    return this.point(layer, a);
-  }
   wakeSamples(signal, a) {
-    const source = { ...signal, depthTwist: 1, z: FAR, twist: this.memory.rotation };
+    const source = { ...signal, z: FAR, twist: this.memory.rotation };
     const nodes = [source, ...this.memory.layers];
-    const samples = [{ point: this.wakePoint(source, a), layer: source }];
+    const samples = [{ point: this.point(source, a), layer: source }];
     for (let i = 1; i < nodes.length; i++) {
       const from = nodes[i - 1], to = nodes[i];
       const detail = clamp(Math.ceil(Math.max(Math.abs(to.twist - from.twist) * 8, Math.abs(to.z - from.z) * 6)), 3, 16);
       const count = Math.max(1, Math.round(detail * (1 - clamp(to.turbulence ?? 0))));
       for (let j = 1; j <= count; j++) {
         const t = j / count, layer = { ...to };
-        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence', 'depthTwist', 'colourLevel']) {
+        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence', 'colourLevel']) {
           const start = from[key] ?? 0, end = to[key] ?? 0;
           layer[key] = start + (end - start) * t;
         }
         layer.direction = (from.direction ?? 0) + angleDifference(to.direction ?? 0, from.direction ?? 0) * t;
-        samples.push({ point: this.wakePoint(layer, a), layer });
+        samples.push({ point: this.point(layer, a), layer });
       }
     }
     return samples;
@@ -137,13 +122,6 @@ export class TunnelRenderer {
       return radius * (1 - .32 * clamp((layer.turbulence ?? 0) * 1.4)) <= corner + 8;
     });
   }
-  present() {
-    if (this.wakeCanvas) {
-      this.displayCtx.globalCompositeOperation = 'source-over';
-      this.displayCtx.drawImage(this.wakeCanvas, 0, 0, this.width, this.height);
-    }
-  }
-
   drawStraightTunnel() {
     const { ctx, width: w, height: h } = this;
     const cx = w / 2, cy = h / 2;
@@ -171,19 +149,17 @@ export class TunnelRenderer {
     const layers = this.memory.layers;
     if (resting || !layers.length) {
       this.drawStraightTunnel();
-      this.present();
       return;
     }
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const attenuation = resting ? .14 : 1;
     // Project each point once; wall filaments reuse the same geometry.
-    const geometry = layers.map(layer => Array.from({ length: 97 }, (_, j) => this.wallPoint(layer, j / 96 * Math.PI * 2)));
+    const geometry = layers.map(layer => Array.from({ length: 97 }, (_, j) => this.point(layer, j / 96 * Math.PI * 2)));
     // History rings expand in perspective, then pass outside the viewport.
     for (const [index, layer] of layers.entries()) {
       const ripple = .88 + .12 * Math.sin(layer.twist * 2 + layer.z * (.4 + layer.wind));
-      const intensity = (.15 + .8 * layer.brightness) * attenuation * ripple;
-      const hue = resting ? 220 : artworkHue(layer.power, layer.colourLevel, this.dynamicColour) + ((layer.powerDetail ?? .5) - .5) * 12;
+      const intensity = (.15 + .8 * layer.brightness) * ripple;
+      const hue = artworkHue(layer.power, layer.colourLevel, this.dynamicColour) + ((layer.powerDetail ?? .5) - .5) * 12;
       ctx.beginPath();
       for (let j = 0; j <= 96; j++) {
         const [x, y] = geometry[index][j];
@@ -200,7 +176,7 @@ export class TunnelRenderer {
       for (let i = 0; i < samples.length - 1; i++) {
         const layer = samples[i + 1].layer;
         ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i, layer.turbulence ?? 0));
-        ctx.strokeStyle = `hsla(${resting ? 220 : artworkHue(layer.power, layer.colourLevel, this.dynamicColour)},95%,74%,${attenuation * (.06 + layer.brightness * .26)})`;
+        ctx.strokeStyle = `hsla(${artworkHue(layer.power, layer.colourLevel, this.dynamicColour)},95%,74%,${(.06 + layer.brightness * .26)})`;
         ctx.lineWidth = clamp(9 / (layer.z + .5), .9, 4.5); ctx.stroke();
       }
     }
@@ -209,16 +185,16 @@ export class TunnelRenderer {
       const a = strand / 24 * Math.PI * 2;
       const points = geometry.map(ring => ring[strand * 4]);
       for (let i = 1; i < layers.length; i++) {
-        const older = layers[i], newer = layers[i - 1];
+        const older = layers[i];
         const [x, y] = geometry[i][strand * 4], [nx, ny] = geometry[i - 1][strand * 4];
-        const hue = resting ? 220 : artworkHue(older.power, older.colourLevel, this.dynamicColour) + Math.sin(a * 3) * 8;
+        const hue = artworkHue(older.power, older.colourLevel, this.dynamicColour) + Math.sin(a * 3) * 8;
         ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1, clamp((older.turbulence ?? 0) * 1.4)));
-        ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.16 + older.brightness * .55) * clamp((FAR - older.z) / 4, 0, 1)})`;
+        ctx.strokeStyle = `hsla(${hue},95%,67%,${(.16 + older.brightness * .55) * clamp((FAR - older.z) / 4, 0, 1)})`;
         ctx.lineWidth = clamp(4 / (older.z + .5), .7, 6); ctx.stroke();
         // Bright beads produce streaks that enlarge as they approach the viewer.
         if ((older.serial + strand * 3) % Math.round(36 - Math.sqrt(older.power) * 16) === 0) {
           ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (x - nx) * .65, y + (y - ny) * .65);
-          ctx.strokeStyle = `hsla(${hue},90%,78%,${attenuation * (.12 + older.brightness * .3)})`;
+          ctx.strokeStyle = `hsla(${hue},90%,78%,${(.12 + older.brightness * .3)})`;
           ctx.lineWidth = clamp(5 / (older.z + .5), 1, 7); ctx.stroke();
         }
       }
@@ -227,6 +203,5 @@ export class TunnelRenderer {
     const shade = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * .58);
     shade.addColorStop(0, 'rgba(2,3,9,.1)'); shade.addColorStop(.35, 'transparent'); shade.addColorStop(1, 'rgba(2,3,9,.5)');
     ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
-    this.present();
   }
 }

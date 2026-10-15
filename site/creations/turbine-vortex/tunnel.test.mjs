@@ -112,24 +112,6 @@ test('no-data view ignores retained twist and draws only a centred straight tunn
   assert.ok(!calls.some(call => ['bezierCurveTo', 'quadraticCurveTo', 'rotate', 'createRadialGradient'].includes(call[0])));
 });
 
-test('wake is displayed without a rotor graphic or dark mask', () => {
-  const wakeCalls = [], displayCalls = [];
-  const context = calls => new Proxy({}, {
-    get: (_, key) => key === 'createRadialGradient' ? () => ({ addColorStop() {} }) : (...args) => calls.push([key, ...args]),
-    set: () => true
-  });
-  const wake = { getContext: () => context(wakeCalls) };
-  const canvas = { getContext: () => context(displayCalls), ownerDocument: { createElement: () => wake } };
-  const renderer = new TunnelRenderer(canvas);
-  renderer.resize(800, 600, 2);
-  renderer.render(.1, first, { active: true, resting: false });
-  assert.equal(wake.width, 1600); assert.equal(wake.height, 1200);
-  assert.ok(displayCalls.some(call => call[0] === 'drawImage'));
-  assert.equal(displayCalls.filter(call => call[0] === 'quadraticCurveTo').length, 0);
-  assert.ok(!wakeCalls.some(call => call[0] === 'quadraticCurveTo'));
-  assert.ok(!displayCalls.some(call => call[0] === 'fillRect'));
-});
-
 test('rotor stays centred for every direction and neutral wind gives a straight centreline', () => {
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
   for (const [width, height] of [[1200,600], [600,1200]]) {
@@ -155,16 +137,14 @@ test('startup lines are straight and live layers progressively introduce the vor
   const signal = { ...first, direction: 30, turbulence: 1 };
   renderer.memory.step(0, signal);
   for (const layer of renderer.memory.layers) {
-    assert.equal(layer.depthTwist, 0);
     assert.equal(layer.direction, 0); assert.equal(layer.turbulence, 0);
     const point = renderer.point(layer, Math.PI / 3);
     assert.ok(Math.abs(Math.atan2(point[1] - 300, point[0] - 600) - Math.PI / 3) < 1e-10);
   }
   renderer.memory.step(.7, signal);
-  assert.equal(renderer.memory.layers[0].depthTwist, 1);
   assert.equal(renderer.memory.layers[0].direction, 30);
   assert.equal(renderer.memory.layers[0].turbulence, 1);
-  assert.ok(renderer.memory.layers.some(layer => layer.depthTwist === 0));
+  assert.ok(renderer.memory.layers.some(layer => layer.direction === 0));
 });
 
 test('expanded perspective preserves rotor size and spreads distant turns by 4', () => {
@@ -179,16 +159,6 @@ test('expanded perspective preserves rotor size and spreads distant turns by 4',
   assert.ok(radii.every((radius, i) => i === 0 || radius > radii[i - 1]));
 });
 
-test('walls and three blade trails share the complete measured rotor phase', () => {
-  const renderer = new TunnelRenderer({ getContext: () => ({}) });
-  renderer.width = 1200; renderer.height = 600;
-  const layer = { ...first, z: 14, twist: 1, depthTwist: 0, direction: 0, turbulence: 0 };
-  const wall = renderer.wallPoint(layer, 0), trail = renderer.wakePoint(layer, 0);
-  assert.ok(Math.abs(Math.atan2(wall[1] - 300, wall[0] - 600) - 1) < 1e-10);
-  assert.ok(Math.abs(Math.atan2(trail[1] - 300, trail[0] - 600) - 1) < 1e-10);
-  assert.deepEqual(renderer.wallPoint({ ...layer, twist: 0 }, 0), renderer.wakePoint({ ...layer, twist: 0 }, 0));
-});
-
 test('three blade trails keep 120-degree spacing and no depth-dependent extra rotation', () => {
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
   renderer.width = 1200; renderer.height = 600;
@@ -199,11 +169,10 @@ test('three blade trails keep 120-degree spacing and no depth-dependent extra ro
     const layer = { ...first, direction: 0, turbulence: 0, z, twist: renderer.memory.rotation };
     for (let blade = 0; blade < 3; blade++) {
       const angle = layer.twist + blade * Math.PI * 2 / 3;
-      const [x,y] = renderer.wakePoint(layer, blade * Math.PI * 2 / 3);
+      const [x,y] = renderer.point(layer, blade * Math.PI * 2 / 3);
       const radius = renderer.circle(layer).radius;
       assert.ok(Math.abs((x-600)/radius - Math.cos(angle)) < 1e-10);
       assert.ok(Math.abs((y-300)/radius - Math.sin(angle)) < 1e-10);
-      assert.deepEqual(renderer.wallPoint(layer, blade * Math.PI * 2 / 3), [x,y]);
     }
   }
 });
@@ -212,9 +181,9 @@ test('global artistic roll is slow, shared and independent of stored RPM phase',
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
   renderer.width = 1200; renderer.height = 600;
   const layer = { ...first, z: 9, twist: .5, direction: 0, turbulence: 0 };
-  const before = renderer.wakePoint(layer, 0);
+  const before = renderer.point(layer, 0);
   renderer.time = 10;
-  const after = renderer.wakePoint(layer, 0);
+  const after = renderer.point(layer, 0);
   assert.ok(Math.abs(Math.atan2(after[1]-300,after[0]-600) - Math.atan2(before[1]-300,before[0]-600) - .25) < 1e-10);
   assert.equal(layer.twist, .5);
   const memory = new TunnelMemory(); memory.step(0, first);
