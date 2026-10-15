@@ -167,14 +167,14 @@ test('startup lines are straight and live layers progressively introduce the vor
   assert.ok(renderer.memory.layers.some(layer => layer.depthTwist === 0));
 });
 
-test('expanded perspective preserves rotor size and spreads distant turns by 2.5', () => {
+test('expanded perspective preserves rotor size and spreads distant turns by 4', () => {
   const renderer = new TunnelRenderer({ getContext: () => ({}) });
   renderer.width = 1200; renderer.height = 600;
   const unit = 600 * 1.25;
   assert.equal(renderer.circle({ z: 28 }).radius, unit / 28.2);
   const far = renderer.circle({ z: 27 }).radius, nearer = renderer.circle({ z: 25 }).radius;
   const originalSpacing = unit * (1 / 25.2 - 1 / 27.2);
-  assert.ok(Math.abs((nearer - far) / originalSpacing - 2.5) < 1e-10);
+  assert.ok(Math.abs((nearer - far) / originalSpacing - 4) < 1e-10);
   const radii = [28,24,18,10,2].map(z => renderer.circle({ z }).radius);
   assert.ok(radii.every((radius, i) => i === 0 || radius > radii[i - 1]));
 });

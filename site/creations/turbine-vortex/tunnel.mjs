@@ -69,7 +69,7 @@ export class TunnelRenderer {
     // Expand radial depth spacing while anchoring the rotor's apparent size.
     // This opens the distant turns without changing RPM or history emission.
     const sourceDepth = 1 / (FAR + .2);
-    const depth = sourceDepth + 2.5 * (1 / (layer.z + .2) - sourceDepth);
+    const depth = sourceDepth + 4 * (1 / (layer.z + .2) - sourceDepth);
     const scale = unit * depth;
     const distant = clamp(layer.z / FAR);
     // Historical vane angles shape the path; this screen mapping is not a compass.
