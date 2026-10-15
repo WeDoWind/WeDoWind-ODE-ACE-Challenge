@@ -37,6 +37,11 @@ test('zero RPM produces no rotation while camera travel remains artistic', () =>
   const memory = new TunnelMemory(); memory.step(1, { ...first, rpm: 0 });
   assert.equal(memory.rotation, 0);
 });
+test('1.0 multiplier gives one revolution in five seconds at a steady 12 RPM', () => {
+  const memory = new TunnelMemory();
+  for (let i = 0; i < 150; i++) memory.step(1 / 30, { ...first, rpm: 12 });
+  assert.ok(Math.abs(memory.rotation - 2 * Math.PI) < 1e-10);
+});
 test('calm and strong-wind sessions retain bounded history for an hour', () => {
   for (const wind of [0, 1]) {
     const memory = new TunnelMemory();

@@ -12,7 +12,7 @@ export class TunnelMemory {
     if (!this.layers.length) {
       for (let z = FAR; z > NEAR; z -= .65) this.layers.push(this.layer(z, signal));
     }
-    this.rotation += clamp(signal.rpm, 0, 30) * Math.PI * 2 / 60 * .65 * dt;
+    this.rotation += clamp(signal.rpm, 0, 30) * Math.PI * 2 / 60 * 1.0 * dt;
     const speed = .4 + signal.wind * 1.2;
     for (const layer of this.layers) layer.z -= speed * dt;
     this.layers = this.layers.filter(layer => layer.z > NEAR);
