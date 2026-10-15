@@ -1,7 +1,7 @@
-import { clamp, powerHue, angleDifference } from './signals.mjs';
+import { clamp, artworkHue, angleDifference } from './signals.mjs';
 
 const FAR = 18, NEAR = .45, EMIT_SECONDS = .65;
-const colour = power => powerHue(power * 4200);
+
 
 // Catmull–Rom controls keep adjoining screen-space curve tangents continuous.
 export function curveControls(points, index, angularity = 0) {
@@ -120,7 +120,7 @@ export class TunnelRenderer {
       const count = Math.max(1, Math.round(detail * (1 - clamp(to.turbulence ?? 0))));
       for (let j = 1; j <= count; j++) {
         const t = j / count, layer = { ...to };
-        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence', 'depthTwist']) {
+        for (const key of ['z', 'twist', 'power', 'brightness', 'turbulence', 'depthTwist', 'colourLevel']) {
           const start = from[key] ?? 0, end = to[key] ?? 0;
           layer[key] = start + (end - start) * t;
         }
@@ -183,7 +183,7 @@ export class TunnelRenderer {
     for (const [index, layer] of layers.entries()) {
       const ripple = .88 + .12 * Math.sin(layer.twist * 2 + layer.z * (.4 + layer.wind));
       const intensity = (.15 + .8 * layer.brightness) * attenuation * ripple;
-      const hue = resting ? 220 : colour(layer.power) + ((layer.powerDetail ?? .5) - .5) * 12;
+      const hue = resting ? 220 : artworkHue(layer.power, layer.colourLevel, this.dynamicColour) + ((layer.powerDetail ?? .5) - .5) * 12;
       ctx.beginPath();
       for (let j = 0; j <= 96; j++) {
         const [x, y] = geometry[index][j];
@@ -200,7 +200,7 @@ export class TunnelRenderer {
       for (let i = 0; i < samples.length - 1; i++) {
         const layer = samples[i + 1].layer;
         ctx.beginPath(); ctx.moveTo(...points[i]); ctx.bezierCurveTo(...curveControls(points, i, layer.turbulence ?? 0));
-        ctx.strokeStyle = `hsla(${resting ? 220 : colour(layer.power)},95%,74%,${attenuation * (.06 + layer.brightness * .26)})`;
+        ctx.strokeStyle = `hsla(${resting ? 220 : artworkHue(layer.power, layer.colourLevel, this.dynamicColour)},95%,74%,${attenuation * (.06 + layer.brightness * .26)})`;
         ctx.lineWidth = clamp(9 / (layer.z + .5), .9, 4.5); ctx.stroke();
       }
     }
@@ -211,7 +211,7 @@ export class TunnelRenderer {
       for (let i = 1; i < layers.length; i++) {
         const older = layers[i], newer = layers[i - 1];
         const [x, y] = geometry[i][strand * 4], [nx, ny] = geometry[i - 1][strand * 4];
-        const hue = resting ? 220 : colour(older.power) + Math.sin(a * 3) * 8;
+        const hue = resting ? 220 : artworkHue(older.power, older.colourLevel, this.dynamicColour) + Math.sin(a * 3) * 8;
         ctx.beginPath(); ctx.moveTo(nx, ny); ctx.bezierCurveTo(...curveControls(points, i - 1, clamp((older.turbulence ?? 0) * 1.4)));
         ctx.strokeStyle = `hsla(${hue},95%,67%,${attenuation * (.16 + older.brightness * .55) * clamp((FAR - older.z) / 4, 0, 1)})`;
         ctx.lineWidth = clamp(4 / (older.z + .5), .7, 6); ctx.stroke();

@@ -5,12 +5,14 @@ import { ENDPOINT, AdaptiveRange, parseSignals, angleDifference, visualTargets, 
 const $ = id => document.getElementById(id);
 const canvas = $('vortex'), tunnel = new TunnelRenderer(canvas);
 const windRange = new AdaptiveRange(1.5), powerRange = new AdaptiveRange(250);
+const colourRange = new AdaptiveRange(25);
+let dynamicColour = false;
 const freshness = new SignalFreshness(), powerAverage = new PowerAverage();
 const windChanges = new WindChanges();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let reading = null, unavailable = false, paused = reducedMotion.matches;
 let width = 1, height = 1, previous = 0, frame, forceDraw = true;
-const visual = { rpm: 0, wind: 0, power: 0, brightness: .24, direction: 0, windDetail: .5, powerDetail: .5, shedding: 0, turbulence: 0, curlSign: 1 };
+const visual = { rpm: 0, wind: 0, power: 0, colourLevel: .5, brightness: .24, direction: 0, windDetail: .5, powerDetail: .5, shedding: 0, turbulence: 0, curlSign: 1 };
 let initialized = false, lastFrame = 0, chromeTimer;
 let resting = true;
 let failureReason = '';
@@ -50,11 +52,12 @@ const poller = createAcePoller({ endpoint: ENDPOINT, intervalMs: 2000,
     if (!freshness.stale()) {
       windRange.add(reading.wind.value, reading.wind.observed);
       powerRange.add(reading.power.value, reading.power.observed);
+      colourRange.add(reading.power.value, reading.power.observed);
       powerAverage.add(reading.power.value, reading.power.observed);
       windChanges.add(reading.wind);
       if (!initialized) { Object.assign(visual, visualTargets(reading, .5, .5, powerAverage.mean())); initialized = true; }
     }
-    $('power-marker').style.left = `${Math.sqrt(Math.max(0, Math.min(1, reading.power.value / 4200))) * 100}%`;
+    updateColourScale();
     $('wind-marker').style.left = `${Math.max(0, Math.min(1, reading.wind.value / 15)) * 100}%`;
     updateStatus();
   },
@@ -78,6 +81,7 @@ function draw(dt) {
   if (active) {
     const targets = visualTargets(reading, windRange.normalize(reading.wind.value), powerRange.normalize(reading.power.value), powerAverage.mean() ?? reading.power.value, windChanges.rate);
     for (const key of ['rpm', 'wind', 'power', 'windDetail', 'powerDetail']) visual[key] += (targets[key] - visual[key]) * ease;
+    visual.colourLevel += (colourRange.normalize(reading.power.value) - visual.colourLevel) * (1 - Math.exp(-dt / 1.2));
     visual.brightness += (targets.brightness - visual.brightness) * (1 - Math.exp(-dt / .6));
     for (const key of ['shedding', 'turbulence', 'curlSign']) visual[key] += (targets[key] - visual[key]) * (1 - Math.exp(-dt / 1.2));
     visual.direction += angleDifference(targets.direction, visual.direction) * (1 - Math.exp(-dt / 8));
@@ -94,6 +98,29 @@ function animate(now) {
   const dt = previous ? Math.min((now - previous) / 1000, .1) : 0;
   previous = now; draw(dt); frame = requestAnimationFrame(animate);
 }
+function updateColourScale() {
+  const labels = $('power-labels').querySelectorAll('span');
+  const low = (colourRange.center ?? 0) - colourRange.span / 2;
+  const high = low + colourRange.span;
+  const ready = colourRange.center !== null;
+  $('colour-scale-status').textContent = dynamicColour
+    ? ready ? `Colour: dynamic · recent range ${low.toFixed(0)}–${high.toFixed(0)} kW` : 'Colour: dynamic · waiting for readings'
+    : 'Colour: fixed · 0–4,200 kW';
+  const fixed = ['0 kW', '250', '1,000', '2,500', '4,200'];
+  labels.forEach((label, i) => {
+    label.hidden = dynamicColour && i > 0 && i < 4;
+    label.textContent = dynamicColour ? i === 0 ? ready ? `${low.toFixed(0)} kW` : 'Recent low' : ready ? `${high.toFixed(0)} kW` : 'Recent high' : fixed[i];
+  });
+  if (reading) $('power-marker').style.left = `${100 * (dynamicColour ? colourRange.normalize(reading.power.value) : Math.sqrt(Math.max(0, Math.min(1, reading.power.value / 4200))))}%`;
+}
+$('colour-toggle').addEventListener('click', () => {
+  dynamicColour = !dynamicColour;
+  tunnel.dynamicColour = dynamicColour;
+  $('colour-toggle').setAttribute('aria-pressed', String(dynamicColour));
+  $('colour-toggle').textContent = `Dynamic colour: ${dynamicColour ? 'on' : 'off'}`;
+  updateColourScale();
+  forceDraw = true; draw(0);
+});
 $('pause').addEventListener('click', () => { paused = !paused; updateStatus(); });
 reducedMotion.addEventListener('change', event => { paused = event.matches; updateStatus(); });
 $('refresh').addEventListener('click', async () => {

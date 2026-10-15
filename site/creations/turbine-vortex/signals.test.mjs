@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, angleDifference, SignalFreshness, PowerAverage, WindChanges } from './signals.mjs';
+import { FIELDS, parseSignals, AdaptiveRange, STALE_MS, visualTargets, powerHue, artworkHue, angleDifference, SignalFreshness, PowerAverage, WindChanges } from './signals.mjs';
 const now = 1791927600000;
 const fixture = () => ({ series: Object.fromEntries(FIELDS.map(f => [f, [0]])), series_quality: Object.fromEntries(FIELDS.map(f => [f, ['Good']])), series_observed_at: Object.fromEntries(FIELDS.map(f => [f, [now * 1000]])) });
 test('preserves zero, signed power and per-field observation times', () => {
@@ -94,4 +94,15 @@ test('wind-change effects use observation intervals and ignore duplicate reading
   assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 1);
   reading.power.value = 100;
   assert.equal(visualTargets(reading, .5, .5, 100, 0).shedding, 0);
+});
+
+test('dynamic palette reveals clustered power while fixed colours retain absolute meaning', () => {
+  const range = new AdaptiveRange(25); range.add(100, now);
+  const low = range.normalize(90), high = range.normalize(110);
+  assert.equal(artworkHue(100/4200, .1, false), powerHue(100));
+  assert.equal(artworkHue(100/4200, .9, false), powerHue(100));
+  assert.ok(Math.abs(artworkHue(90/4200, low, true) - artworkHue(110/4200, high, true)) > 150);
+  assert.equal(artworkHue(0, 0, true), 280);
+  assert.equal(artworkHue(1, 1, true), 40);
+  assert.equal(range.span, 25);
 });

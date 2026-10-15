@@ -9,6 +9,10 @@ export const powerHue = power => {
   const level = Math.sqrt(clamp(power / 4200));
   return level < .5 ? 280 - level * 180 : 190 - (level - .5) * 300;
 };
+export function artworkHue(power, colourLevel, dynamic = false) {
+  return powerHue((dynamic ? clamp(colourLevel ?? .5) ** 2 : clamp(power)) * 4200);
+}
+
 export function visualTargets(reading, windDetail = .5, powerDetail = .5, powerMean = reading.power.value, windChange = 0) {
   const wind = clamp(reading.wind.value / 15);
   const power = clamp(reading.power.value / 4200);
