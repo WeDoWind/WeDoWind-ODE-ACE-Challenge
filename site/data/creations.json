@@ -13,6 +13,15 @@
       "dataUse": "Uses ACE wec-1 wec_instantaneous latest 1s power and wind speed; refreshes every second; marks signal observations over one minute old stale and retains the last reading if the API is unavailable."
     },
     {
+      "id": "issue-14",
+      "title": "Fruitolus Basket Game",
+      "creator": "Carlos Talegon Perez @carlos-talegon",
+      "summary": "A fun addictive html game that mixes mythology and live wind turbine data.",
+      "viewUrl": "https://github.com/user-attachments/files/33777758/Fruitolus__Basket_02-3.html",
+      "image": "images/creations/issue-14.png",
+      "imageAlt": "A html web game with a basket to catch falling fruit"
+    },
+    {
       "id": "issue-3",
       "title": "My first dashboard",
       "creator": "Charlie",
