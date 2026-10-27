@@ -64,6 +64,25 @@ def run():
         page.goto(url)
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')")
         assert 'Clock difference' not in page.locator('#observed').inner_text()
+        measured = page.locator('#wind').inner_text()
+        observed = page.locator('#wind-time').get_attribute('datetime')
+        page.locator('#wind-multiplier').fill('2')
+        page.locator('#wind-offset').fill('1')
+        assert 'adjusted 10.6 m/s' in page.locator('#wind-mixed').inner_text()
+        assert page.locator('#wind').inner_text() == measured
+        assert page.locator('#wind-time').get_attribute('datetime') == observed
+        assert 'Exploration active' in page.locator('#mixer-status').inner_text()
+        page.locator('#wind-multiplier').focus()
+        page.keyboard.press('ArrowRight')
+        assert page.locator('#wind-multiplier').input_value() == '2.1'
+        page.locator('#rpm-multiplier').fill('0')
+        page.locator('#rpm-offset').fill('15')
+        assert 'adjusted 15.0 rpm' in page.locator('#rpm-mixed').inner_text()
+        page.locator('#mixer-reset').click()
+        assert 'Original mapping' in page.locator('#mixer-status').inner_text()
+        assert page.locator('#wind-multiplier').input_value() == '1'
+        assert page.locator('#wind-offset').input_value() == '0'
+
         assert page.evaluate('audioContexts.length') == 0, 'Audio must be opt in'
         page.locator('#sound-toggle').click()
         page.wait_for_function("document.querySelector('#sound-status').textContent.startsWith('Sound live')")

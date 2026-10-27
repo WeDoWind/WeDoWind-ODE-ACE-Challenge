@@ -89,3 +89,24 @@ sound. Browser interruptions may require another click on Enable sound. Reloadin
 resets sound to off. Current API docs, OpenAPI, sites/assets and instantaneous
 field catalogue were rechecked on **27 October 2026**; endpoint, units, two-second
 refresh and 60-second stale policy above remain unchanged.
+
+## Explore the signals
+
+The signal mixer applies `adjusted = measured × multiplier + offset` to the four
+validated inputs for both sound and visuals. Multipliers span 0–3×; offsets span
+±15 rpm, ±10 m/s, ±4,200 kW and ±180 degrees. Adjusted values clamp to 0–30 rpm,
+0–15 m/s and ±4,200 kW; vane angles wrap to ±180°. Each row shows measured and
+adjusted values. A zero multiplier plus an offset holds a chosen artistic input
+while valid live data continues. It cannot bypass missing/stale data or pause.
+
+The observation cards, timestamps, validity checks and statistics remain measured.
+Scale markers show adjusted inputs, and an exploration label stays on the artwork
+when any control differs from default. Power brightness compares with the measured
+30-second mean transformed by the same multiplier/offset; wind-change roughness
+uses measured change times the wind multiplier. Dynamic colour compares adjusted
+power against the measured recent range, so adjustments can reach its endpoints.
+Existing smoothing still applies. New tunnel layers carry the adjusted mappings;
+older layers keep their previous shape. This is a creative exploration, not a
+prediction of turbine behaviour. Reset all signals restores 1× and zero offsets;
+reload also resets them. No settings are saved and no additional API calls occur.
+The mixer is available outside Immerse; exit immersion to adjust it.

@@ -1,3 +1,4 @@
+import { MIXER_SIGNALS, defaultMix, mixActive, mixReading } from './mixer.mjs';
 import { Soundscape } from './soundscape.mjs';
 import { TunnelRenderer } from './tunnel.mjs';
 import { createAcePoller } from './ace-live.mjs';
@@ -6,9 +7,46 @@ import { ENDPOINT, AdaptiveRange, parseSignals, angleDifference, visualTargets, 
 const $ = id => document.getElementById(id);
 const sound = new Soundscape();
 let soundEnabled = false;
+let mix = defaultMix();
+const adjustedReading = () => mixReading(reading, mix);
+for (const [key, spec] of Object.entries(MIXER_SIGNALS)) {
+  const row = document.createElement('fieldset');
+  row.innerHTML = `<legend>${spec.label}</legend>
+    <label for="${key}-multiplier">Multiplier <output id="${key}-multiplier-value">1×</output></label>
+    <input id="${key}-multiplier" type="range" min="0" max="3" step="0.1" value="1">
+    <label for="${key}-offset">Offset (${spec.unit}) <output id="${key}-offset-value">0</output></label>
+    <input id="${key}-offset" type="range" min="${-spec.offset}" max="${spec.offset}" step="${spec.step}" value="0">
+    <p id="${key}-mixed">Waiting for measured data</p>`;
+  $('mixer-signals').append(row);
+  for (const control of ['multiplier', 'offset']) {
+    $(`${key}-${control}`).addEventListener('input', event => {
+      mix[key][control] = Number(event.target.value);
+      updateMixer(); updateSound(); updateColourScale(); forceDraw = true;
+    });
+  }
+}
+function updateMixer() {
+  const adjusted = adjustedReading();
+  const active = mixActive(mix);
+  const message = active ? 'Exploration active · sound and visuals use adjusted values. Readings above remain measured.' : 'Original mapping · multipliers 1×, offsets 0';
+  if ($('mixer-status').textContent !== message) $('mixer-status').textContent = message;
+  document.querySelector('main').classList.toggle('mixing', active);
+  for (const [key, spec] of Object.entries(MIXER_SIGNALS)) {
+    $(`${key}-multiplier-value`).textContent = `${mix[key].multiplier.toFixed(1)}×`;
+    $(`${key}-offset-value`).textContent = mix[key].offset;
+    $(`${key}-mixed`).textContent = adjusted ? `Measured ${reading[key].value.toFixed(1)} → adjusted ${adjusted[key].value.toFixed(1)} ${spec.unit}` : 'Waiting for measured data';
+  }
+}
+$('mixer-reset').addEventListener('click', () => {
+  mix = defaultMix();
+  for (const key of Object.keys(MIXER_SIGNALS)) {
+    $(`${key}-multiplier`).value = 1; $(`${key}-offset`).value = 0;
+  }
+  updateMixer(); updateSound(); updateColourScale(); forceDraw = true;
+});
 function updateSound() {
   const active = soundEnabled && !resting && !paused && !document.hidden;
-  sound.update(reading, active);
+  sound.update(adjustedReading(), active);
   const message = soundEnabled ? active ? 'Sound live · RPM pulse / wind filter / power harmonics / vane stereo' : 'Sound resting · waiting for fresh data, visible page and running motion' : 'Sound off · opt in to the turbine soundscape';
   if ($('sound-status').textContent !== message) $('sound-status').textContent = message;
 }
@@ -48,12 +86,14 @@ function updateStatus() {
   if (nextResting !== resting) forceDraw = true;
   resting = nextResting;
   updateSound();
+  updateMixer();
   document.querySelector('main').classList.toggle('data-resting', !!resting);
   const status = $('status');
   status.dataset.state = unavailable ? 'error' : stale ? 'stale' : 'fresh';
   const message = unavailable ? (reading ? 'Unavailable · last valid readings retained' : 'Unavailable · no valid readings') : stale ? 'Stale · last valid readings retained' : reading ? 'Live · ACE turbine / wec-1' : 'Connecting to ACE…';
   if (status.textContent !== message) status.textContent = message;
   $('mode').textContent = resting ? 'Artwork resting · ' + (unavailable ? 'data unavailable' : stale ? 'observations over 60 seconds old' : 'waiting for observations') : paused ? 'Motion paused · readings continue live' : 'Flying through recent turbine history · trails build over time';
+  if (mixActive(mix)) $('mode').textContent += ' · Adjusted signals';
   const range = tunnel.memory.timeRange();
   const observation = range ? `Visible history: ${new Date(range.oldest).toLocaleString()} → ${new Date(range.newest).toLocaleTimeString()} · ${((range.newest - range.oldest) / 1000).toFixed(1)}s span` : reading ? `Latest data: ${new Date(reading.newest).toLocaleString()} · history starts when motion runs` : 'No readings yet';
   $('observed').textContent = failureReason ? `Reason: ${failureReason}. ${observation}` : observation;
@@ -80,7 +120,6 @@ const poller = createAcePoller({ endpoint: ENDPOINT, intervalMs: 2000,
       if (!initialized) { Object.assign(visual, visualTargets(reading, .5, powerAverage.mean())); initialized = true; }
     }
     updateColourScale();
-    $('wind-marker').style.left = `${Math.max(0, Math.min(1, reading.wind.value / 15)) * 100}%`;
     updateStatus();
   },
   onError(error) {
@@ -101,9 +140,11 @@ function draw(dt) {
   const active = !resting && !paused;
   const ease = 1 - Math.exp(-dt / 2.5);
   if (active) {
-    const targets = visualTargets(reading, powerRange.normalize(reading.power.value), powerAverage.mean() ?? reading.power.value, windChanges.rate);
+    const adjusted = adjustedReading();
+    const mean = (powerAverage.mean() ?? reading.power.value) * mix.power.multiplier + mix.power.offset;
+    const targets = visualTargets(adjusted, powerRange.normalize(adjusted.power.value), mean, windChanges.rate * mix.wind.multiplier);
     for (const key of ['rpm', 'wind', 'power', 'powerDetail']) visual[key] += (targets[key] - visual[key]) * ease;
-    visual.colourLevel += (colourRange.normalize(reading.power.value) - visual.colourLevel) * (1 - Math.exp(-dt / 1.2));
+    visual.colourLevel += (colourRange.normalize(adjusted.power.value) - visual.colourLevel) * (1 - Math.exp(-dt / 1.2));
     visual.brightness += (targets.brightness - visual.brightness) * (1 - Math.exp(-dt / .6));
     visual.turbulence += (targets.turbulence - visual.turbulence) * (1 - Math.exp(-dt / 1.2));
     visual.direction += angleDifference(targets.direction, visual.direction) * (1 - Math.exp(-dt / 8));
@@ -135,7 +176,11 @@ function updateColourScale() {
     label.hidden = !values[i];
     label.textContent = values[i];
   });
-  if (reading) $('power-marker').style.left = `${100 * (dynamicColour ? colourRange.normalize(reading.power.value) : Math.sqrt(Math.max(0, Math.min(1, reading.power.value / 4200))))}%`;
+  const adjusted = adjustedReading();
+  if (adjusted) {
+    $('power-marker').style.left = `${100 * (dynamicColour ? colourRange.normalize(adjusted.power.value) : Math.sqrt(Math.max(0, Math.min(1, adjusted.power.value / 4200))))}%`;
+    $('wind-marker').style.left = `${adjusted.wind.value / 15 * 100}%`;
+  }
 }
 $('colour-toggle').addEventListener('click', () => {
   dynamicColour = !dynamicColour;
