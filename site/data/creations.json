@@ -1,6 +1,18 @@
 {
   "creations": [
     {
+      "id": "ace-live-wind",
+      "title": "ACE Live Wind — Digital Twin, Community Stories & Status Explainer",
+      "creator": "Vanesa Magar and Víctor M. Godínez-Sandoval",
+      "summary": "Animated digital twin of the ACE turbine: the tower is a live power gauge, a card shows the last hour's metered energy in everyday terms, community stories pop up, and a plain-English panel explains what the turbine is doing right now.",
+      "viewUrl": "https://vmagar-cicese.github.io/ACE_Wind_Turbine_Public_Communication_Display/solutions/concept-8-status-explainer/",
+      "sourceUrl": "https://github.com/WeDoWind/WeDoWind-ODE-ACE-Challenge/tree/main/site/creations/ace-live-wind",
+      "image": "images/creations/ace-live-wind.png",
+      "imageAlt": "Full-screen animated ACE wind turbine against a sky, its tower filled green as a live power gauge, with a left overlay of live wind and energy readings, a last-hour energy card with everyday equivalents, and a right-hand rail of community stories, a status explainer and ACE credits.",
+      "license": "MIT (code); ACE data CC BY 4.0",
+      "dataUse": "Uses ACE wec-1 wec_instantaneous latest 1s feed (18 fields, one request per second) plus wecstd, availability, configuration and energy-range points at slower rates; readings over 15 s old are marked stale; on API failure shows an offline warning and keeps the last known reading."
+    },
+    {
       "id": "ace-wind-now",
       "title": "ACE Wind Now",
       "creator": "charlie9578",

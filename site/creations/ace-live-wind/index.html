@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ACE Live Wind — Digital Twin, Community Stories & Status Explainer</title>
+  <meta name="description" content="A live animated digital twin of the Ambition Community Energy (ACE) wind turbine in Lawrence Weston, driven by real-time ACE API data, featuring interactive right-hand text pop-ups exploring why clean energy matters, WHO global health linkages, local community impact, and a plain-English explainer for what the turbine is doing right now." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="scene" id="scene">
+    <div class="sky" id="sky"></div>
+    <div class="wind-layer" id="wind-layer" aria-hidden="true"></div>
+
+    <svg class="landscape" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img"
+         aria-label="Animated illustration of the ACE wind turbine overlooking Lawrence Weston">
+      <defs>
+        <linearGradient id="tower-power-gradient" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stop-color="#1f9e63" />
+          <stop offset="100%" stop-color="#3ddc84" />
+        </linearGradient>
+        <clipPath id="tower-clip">
+          <rect x="790" y="393" width="20" height="450" rx="6" />
+        </clipPath>
+        <!-- Diagonal hatch used for the "last hour" average-output band, so it
+             reads as a distinct section of the tower from the live power fill. -->
+        <pattern id="hour-avg-pattern" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="8" height="8" fill="rgba(255, 200, 87, 0.16)" />
+          <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(255, 200, 87, 0.6)" stroke-width="2" />
+        </pattern>
+      </defs>
+
+      <path class="hill" d="M0,900 L0,800 Q420,705 800,758 T1600,735 L1600,900 Z" />
+
+      <g class="houses">
+        <g transform="translate(120,750)"><rect width="70" height="46" class="house-body" /><polygon points="0,0 35,-26 70,0" class="house-roof" /></g>
+        <g transform="translate(210,768)"><rect width="56" height="40" class="house-body" /><polygon points="0,0 28,-22 56,0" class="house-roof" /></g>
+        <g transform="translate(290,750)"><rect width="66" height="46" class="house-body" /><polygon points="0,0 33,-24 66,0" class="house-roof" /></g>
+        <g transform="translate(1340,747)"><rect width="60" height="44" class="house-body" /><polygon points="0,0 30,-24 60,0" class="house-roof" /></g>
+        <g transform="translate(1420,768)"><rect width="50" height="38" class="house-body" /><polygon points="0,0 25,-20 50,0" class="house-roof" /></g>
+      </g>
+
+      <!-- Turbine Tower / Live Active Power Generation Gauge -->
+      <g class="tower-gauge" id="tower-gauge" aria-label="Turbine tower active power generation gauge">
+        <!-- Tower track background (4.2 MW capacity) -->
+        <rect x="790" y="393" width="20" height="450" rx="6" class="tower-track" />
+        <!-- Last-hour average-output band (hatched) and live active power fill
+             (solid), both rising from the base against the same 0–4.2 MW scale
+             as the tower itself. Last-hour kWh is converted to an equivalent
+             average kW (kWh ÷ 1h) so it can share this scale — see
+             updateHourPanel() in app.js. -->
+        <g clip-path="url(#tower-clip)">
+          <rect id="hour-avg-fill" x="790" y="843" width="20" height="0" class="tower-hour-avg-fill" />
+          <rect id="meter-fill" x="790" y="843" width="20" height="0" class="tower-fill" />
+        </g>
+        <!-- Tower outer border -->
+        <rect x="790" y="393" width="20" height="450" rx="6" class="tower-outline" />
+
+        <!-- Always-visible marker for the last-hour average level, so it stays
+             readable even when the live fill currently covers that height. -->
+        <g id="hour-avg-marker" class="hour-avg-marker" aria-hidden="true">
+          <line id="hour-avg-marker-line" x1="783" y1="843" x2="815" y2="843" class="hour-avg-marker-line" />
+          <polygon id="hour-avg-marker-arrow" points="815,843 823,839 823,847" class="hour-avg-marker-arrow" />
+        </g>
+
+        <!-- Live active power badge directly under the tower -->
+        <g class="tower-power-badge" transform="translate(800, 865)">
+          <rect x="-85" y="-19" width="170" height="38" rx="19" class="tower-power-bg" />
+          <text text-anchor="middle" dominant-baseline="central" class="tower-power-text">
+            <tspan id="power-value" class="tower-power-val">--</tspan>
+            <tspan class="tower-power-unit"> kW</tspan>
+          </text>
+        </g>
+
+        <!-- "Last hour" energy card: floats beside the tower, positioned
+             below the rotor's full sweep circle (radius ~195 around the hub
+             at 800,393) so the spinning blades never pass over it. The
+             dashed marker line above shows where this sits on the tower's
+             own 0–4.2 MW scale; this card spells out the exact kWh plus a
+             few relatable equivalences (see buildHourMessages() in app.js).
+             Text lives in a foreignObject (plain HTML) rather than SVG
+             <text>, so it wraps naturally instead of overflowing the card. -->
+        <g class="tower-hour-card" transform="translate(835, 615)" aria-label="Electricity generated in the last hour">
+          <rect x="0" y="0" width="235" height="120" rx="14" class="tower-hour-card-bg" />
+          <foreignObject x="0" y="0" width="235" height="120">
+            <div xmlns="http://www.w3.org/1999/xhtml" class="tower-hour-card-content">
+              <div class="tower-hour-card-label">⏱️ LAST HOUR</div>
+              <div class="tower-hour-card-value">
+                <span id="hour-energy-value" class="tower-hour-card-num">--</span>
+                <span class="tower-hour-card-unit"> kWh generated</span>
+              </div>
+              <div class="tower-hour-card-ticker" id="hour-ticker-text">Waiting for an hour of live data…</div>
+            </div>
+          </foreignObject>
+        </g>
+      </g>
+      <g id="yaw-group">
+        <rect x="755" y="372" width="90" height="39" rx="12" class="nacelle" />
+        <g id="rotor" class="rotor">
+          <path class="blade" d="M800,393 C779,327 779,246 800,198 C821,246 821,327 800,393 Z" />
+          <path class="blade" d="M800,393 C779,327 779,246 800,198 C821,246 821,327 800,393 Z" transform="rotate(120 800 393)" />
+          <path class="blade" d="M800,393 C779,327 779,246 800,198 C821,246 821,327 800,393 Z" transform="rotate(240 800 393)" />
+          <circle cx="800" cy="393" r="15" class="hub" />
+        </g>
+      </g>
+    </svg>
+
+    <h1 class="scene-title">ACE Wind Turbine</h1>
+
+    <!-- Right-hand rail: story dock, status explainer, and credits all stack in one
+         flex column so none of them can ever overlap, regardless of content length. -->
+    <div class="right-rail">
+      <!-- Story & "Why?" dock -->
+      <aside class="story-dock" id="story-dock" aria-label="Community Stories and Why Clean Energy Matters">
+        <div class="story-dock-top">
+          <span class="story-dock-badge">💡 WHY IT MATTERS</span>
+          <span class="story-dock-counter" id="story-dock-counter" aria-live="off">1 / 5</span>
+        </div>
+
+        <div class="story-dock-teaser" id="story-dock-teaser">
+          <h2 class="story-dock-title" id="teaser-title">Why Clean Energy?</h2>
+          <p class="story-dock-snippet" id="teaser-snippet">
+            Energy and health are inextricably linked. WHO explains how clean power advances health (SDG 3) and beats poverty…
+          </p>
+          <button type="button" class="story-dock-btn" id="teaser-read-btn">
+            Read full story ↗
+          </button>
+        </div>
+
+        <div class="story-pills" role="tablist" aria-label="Choose story topic">
+          <button type="button" class="story-pill active" data-story-id="why-clean-energy" role="tab" aria-selected="true">💡 Why Clean Energy?</button>
+          <button type="button" class="story-pill" data-story-id="community-wealth" role="tab" aria-selected="false">🏘️ Local Impact</button>
+          <button type="button" class="story-pill" data-story-id="turbine-scale" role="tab" aria-selected="false">🌬️ 150m Giant</button>
+          <button type="button" class="story-pill" data-story-id="grid-connection" role="tab" aria-selected="false">⚡ The Grid</button>
+          <button type="button" class="story-pill" data-story-id="clean-air" role="tab" aria-selected="false">🫁 Clean Air & Health</button>
+        </div>
+      </aside>
+
+      <!-- "What's it doing right now?" status explainer -->
+      <aside class="status-dock" id="status-dock" aria-label="What the turbine is doing right now">
+        <button type="button" class="status-dock-header" id="status-dock-toggle" aria-expanded="false" aria-controls="status-dock-body">
+          <span class="status-dock-icon" id="status-dock-icon" aria-hidden="true">🌀</span>
+          <span class="status-dock-heading">
+            <span class="status-dock-label">WHAT'S IT DOING?</span>
+            <span class="status-dock-headline" id="status-dock-headline">Checking…</span>
+          </span>
+          <span class="status-dock-chevron" id="status-dock-chevron" aria-hidden="true">▾</span>
+        </button>
+
+        <div class="status-dock-body" id="status-dock-body" hidden>
+          <p class="status-dock-explain" id="status-dock-explain">
+            Waiting for a live reading from the turbine…
+          </p>
+
+          <button type="button" class="status-dock-specs-toggle" id="status-dock-specs-toggle" aria-expanded="false" aria-controls="status-dock-specs">
+            Show turbine specs ▾
+          </button>
+          <div class="status-dock-specs" id="status-dock-specs" hidden>
+            <dl class="status-dock-specs-list" id="status-dock-specs-list">
+              <div class="status-dock-specs-row"><dt>Model</dt><dd id="spec-model">--</dd></div>
+              <div class="status-dock-specs-row"><dt>Serial number</dt><dd id="spec-serial">--</dd></div>
+              <div class="status-dock-specs-row"><dt>Rated power</dt><dd id="spec-power">--</dd></div>
+              <div class="status-dock-specs-row"><dt>In operation since</dt><dd id="spec-commissioned">--</dd></div>
+              <div class="status-dock-specs-row"><dt>Location</dt><dd id="spec-location">--</dd></div>
+            </dl>
+
+            <p class="status-dock-specs-note">
+              Live from ACE's API. <strong>"EP3-CS02"</strong> is Enercon's
+              control-platform code for this Enercon E-115 EP3 turbine.
+            </p>
+            <dl class="status-dock-specs-list status-dock-specs-list--reference">
+              <div class="status-dock-specs-row"><dt>Rotor diameter</dt><dd>115.7 m</dd></div>
+              <div class="status-dock-specs-row"><dt>Swept area</dt><dd>10,515.5 m²</dd></div>
+              <div class="status-dock-specs-row"><dt>Hub height</dt><dd>92 m</dd></div>
+              <div class="status-dock-specs-row"><dt>Tip height</dt><dd>150 m</dd></div>
+            </dl>
+            <p class="status-dock-specs-note">
+              Enercon E-115 dimensions, from Enercon's own data sheet and
+              Wikipedia's sourced technical summary for this turbine — not
+              pulled from ACE's live API.
+              <a href="https://en.wikipedia.org/wiki/Ambition_Community_Energy" target="_blank" rel="noopener">Wikipedia ↗</a>
+              ·
+              <a href="https://pdf.archiexpo.com/viewerCatalog/enercon/data-sheets-enercon/88093-354545-_21.html#open" target="_blank" rel="noopener">Enercon E-115 data sheet ↗</a>
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Credits and outbound links -->
+      <div class="credits-box">
+        <p class="credits-title">Data shared by Ambition Community Energy (ACE)</p>
+        <div class="credits-links">
+          <a class="credits-link" href="https://ambitioncommunityenergy.org/" target="_blank" rel="noopener">Visit the ACE website ↗</a>
+          <a class="credits-link" href="https://doi.org/10.5281/zenodo.22662372" target="_blank" rel="noopener">Dataset and citation ↗</a>
+          <a class="credits-link" href="https://ace-api.duckdns.org/dashboard/" target="_blank" rel="noopener">Use the data or build a dashboard ↗</a>
+        </div>
+        <p class="credits-fineprint">
+          Turbine data licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Left-hand side live status & mission overlay -->
+    <div class="overlay">
+      <div class="freshness" id="freshness" role="status">Connecting…</div>
+      <div class="readout">
+        <span id="wind-value">--</span> m/s wind from <span id="heading-value">--</span> · updated <span id="observed-value">--</span>
+      </div>
+      <div class="fallback-message" id="fallback-message" hidden>
+        The turbine is taking a short rest while we reconnect to the live ACE feed — last known reading shown.
+      </div>
+
+      <div class="info-panel">
+        <div class="info-stat"><strong id="lifetime-energy">--</strong> MWh generated since 29 Mar 2023</div>
+        <div class="info-stat">£<strong id="income-today">--</strong> est. income today</div>
+        <p class="mission">
+          Income from this community-owned 4.2 MW turbine helps <strong>Ambition Lawrence Weston</strong>
+          tackle poverty and deprivation in Lawrence Weston, Bristol.
+          <a href="https://www.ambitionlw.org/" target="_blank" rel="noopener">Learn more at ambitionlw.org</a>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Bottom-left: Collapsible 17-signal explorer -->
+    <div class="explorer" id="explorer">
+      <button type="button" class="explorer-toggle" id="explorer-toggle" aria-expanded="false" aria-controls="explorer-panel">
+        📊 Explore more turbine data
+      </button>
+      <div class="explorer-panel" id="explorer-panel" hidden>
+        <label class="explorer-label" for="signal-select">Choose a signal</label>
+        <select id="signal-select" class="explorer-select"></select>
+
+        <div class="explorer-value-row">
+          <span class="explorer-value" id="signal-value">--</span>
+          <span class="explorer-unit" id="signal-unit"></span>
+        </div>
+        <div class="explorer-freshness" id="signal-freshness">--</div>
+
+        <div class="explorer-chart-wrap">
+          <svg id="signal-chart" class="explorer-chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Recent history chart for the selected signal"></svg>
+          <div class="explorer-chart-status" id="chart-status">Loading history…</div>
+        </div>
+        <div class="explorer-legend" id="signal-legend" hidden></div>
+
+        <p class="explorer-note">
+          History is a recent sample from the live ACE feed, not a guarantee of every reading.
+          See this concept's README for each signal's exact source, resolution and update cadence.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Story Pop-up Modal -->
+  <div class="story-modal-backdrop" id="story-modal-backdrop" hidden>
+    <div class="story-modal" id="story-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <div class="modal-tag-row">
+          <span class="modal-tag" id="modal-tag">GLOBAL HEALTH & SDGS</span>
+        </div>
+        <button type="button" class="modal-close" id="modal-close" aria-label="Close story dialog">✕</button>
+      </div>
+
+      <div class="modal-title-row">
+        <span class="modal-icon" id="modal-icon">💡</span>
+        <div>
+          <h2 class="modal-title" id="modal-title">Why Clean Energy?</h2>
+          <p class="modal-subtitle" id="modal-subtitle">Energy and health are inextricably linked — from global goals to our homes in Lawrence Weston.</p>
+        </div>
+      </div>
+
+      <div class="modal-sdgs" id="modal-sdgs" aria-label="Related Sustainable Development Goals"></div>
+
+      <div class="modal-body" id="modal-body">
+        <!-- Injected dynamically from app.js -->
+      </div>
+
+      <div class="modal-links" id="modal-links">
+        <!-- Outbound source links injected here -->
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="modal-nav-btn" id="modal-prev-btn">← Previous topic</button>
+        <div class="modal-dots" id="modal-dots" aria-hidden="true"></div>
+        <button type="button" class="modal-nav-btn" id="modal-next-btn">Next topic →</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
