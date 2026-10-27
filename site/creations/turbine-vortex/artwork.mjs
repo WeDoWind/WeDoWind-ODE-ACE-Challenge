@@ -15,7 +15,7 @@ for (const [key, spec] of Object.entries(MIXER_SIGNALS)) {
     <label for="${key}-multiplier">Multiplier <output id="${key}-multiplier-value">1×</output></label>
     <input id="${key}-multiplier" type="range" min="0" max="3" step="0.1" value="1">
     <label for="${key}-offset">Offset (${spec.unit}) <output id="${key}-offset-value">0</output></label>
-    <input id="${key}-offset" type="range" min="${-spec.offset}" max="${spec.offset}" step="${spec.step}" value="0">
+    <input id="${key}-offset" type="range" min="${spec.offsetMin ?? -spec.offset}" max="${spec.offset}" step="${spec.step}" value="0">
     <p id="${key}-mixed">Waiting for measured data</p>`;
   $('mixer-signals').append(row);
   for (const control of ['multiplier', 'offset']) {

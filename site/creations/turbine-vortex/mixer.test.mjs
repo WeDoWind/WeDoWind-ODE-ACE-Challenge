@@ -34,4 +34,8 @@ test('offset holds, zero, signed power, bounds and wrapping remain well-defined'
   mix.wind = { multiplier: 3, offset: 10 };
   assert.equal(mixReading(measured, mix).wind.value, 15);
   assert.equal(mixReading(null, mix), null);
+  mix.power.offset = -4200;
+  assert.equal(mixReading(measured, mix).power.value, -100);
+  mix.power.offset = 10000;
+  assert.equal(mixReading(measured, mix).power.value, 4200);
 });

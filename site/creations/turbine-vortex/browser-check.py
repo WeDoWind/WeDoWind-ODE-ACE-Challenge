@@ -54,10 +54,11 @@ def run():
             route.fulfill(json=data)
 
         page.add_init_script("""
-          window.audioContexts = [];
+          window.audioContexts = []; window.rhythmVoices = 0;
           const NativeAudio = window.AudioContext;
           window.AudioContext = class extends NativeAudio {
             constructor(...args) { super(...args); window.audioContexts.push(this); }
+            createOscillator() { window.rhythmVoices++; return super.createOscillator(); }
           };
         """)
         page.route('https://ace-api.duckdns.org/**', respond)
@@ -87,6 +88,21 @@ def run():
         page.locator('#sound-toggle').click()
         page.wait_for_function("document.querySelector('#sound-status').textContent.startsWith('Sound live')")
         assert page.evaluate('audioContexts[0].state') == 'running'
+        page.locator('#rpm-multiplier').fill('0')
+        page.wait_for_timeout(400)
+        stopped_voices = page.evaluate('rhythmVoices')
+        page.wait_for_timeout(600)
+        assert page.evaluate('rhythmVoices') == stopped_voices, 'Zero RPM scheduled a pulse'
+        page.locator('#rpm-offset').fill('12')
+        page.wait_for_timeout(800)
+        assert page.evaluate('rhythmVoices') > stopped_voices, 'Pulse did not restart'
+        assert page.locator('#power-offset').get_attribute('min') == '-100'
+        assert page.locator('#power-offset').get_attribute('max') == '4200'
+        page.locator('#power-multiplier').fill('0')
+        page.locator('#power-offset').fill('-100')
+        assert 'adjusted -100.0 kW' in page.locator('#power-mixed').inner_text()
+        page.locator('#mixer-reset').click()
+
         page.wait_for_timeout(700)
         page.locator('#pause').click()
         assert 'Sound resting' in page.locator('#sound-status').inner_text()

@@ -1,7 +1,7 @@
 export const MIXER_SIGNALS = {
   rpm: { label: 'Rotor speed', unit: 'rpm', offset: 15, step: .5, low: 0, high: 30 },
   wind: { label: 'Wind speed', unit: 'm/s', offset: 10, step: .5, low: 0, high: 15 },
-  power: { label: 'Power', unit: 'kW', offset: 4200, step: 100, low: -4200, high: 4200 },
+  power: { label: 'Power', unit: 'kW', offset: 4200, offsetMin: -100, step: 100, low: -100, high: 4200 },
   direction: { label: 'Vane angle', unit: 'deg', offset: 180, step: 5 }
 };
 export const defaultMix = () => Object.fromEntries(Object.keys(MIXER_SIGNALS).map(key => [key, { multiplier: 1, offset: 0 }]));

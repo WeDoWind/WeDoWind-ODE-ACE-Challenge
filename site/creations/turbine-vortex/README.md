@@ -54,7 +54,7 @@ From the repository root:
 
 ```sh
 node scripts/validate.mjs
-node --test site/creations/turbine-vortex/signals.test.mjs site/creations/turbine-vortex/poller.test.mjs site/creations/turbine-vortex/tunnel.test.mjs
+node --test site/creations/turbine-vortex/signals.test.mjs site/creations/turbine-vortex/poller.test.mjs site/creations/turbine-vortex/tunnel.test.mjs site/creations/turbine-vortex/mixer.test.mjs site/creations/turbine-vortex/soundscape.test.mjs
 ```
 
 Tests cover parsing/quality, monotonic freshness, time-weighted power means, adaptive scales, RPM, circular projection, straight startup/no-data views, bend/roll, bounded hour-long histories and 10,000 early-timer polling cycles. Optional browser QA runs with `python site/creations/turbine-vortex/browser-check.py` after installing developer-only Playwright and Chromium. It checks the repository prefix, live data, invalid/stale/offline responses and recovery, polling cooldown/Retry-After, keyboard focus, widths from 320px to desktop, fullscreen controls, pause/reduced motion and both colour modes. It refreshes the gallery screenshot using real live readings; fixtures are used only in tests. Live browser checks were rerun on 15 October 2026. The gallery listing is separate from the official WeDoWind challenge comment.
@@ -70,8 +70,12 @@ minor arpeggio, delay and four-on-the-floor pulse. Volume starts at 25%; use the
 labelled slider or **Mute sound**. No samples, downloads or dependencies are used.
 Sound is an artistic sonification, not a recording of the turbine.
 
-Rotor speed (rpm), clamped to 0–30, sets tempo to 72 + 3 × RPM beats/minute;
-the arpeggio plays sixteenth notes and the kick plays each beat. Wind (0–15 m/s)
+Rotor speed (rpm), clamped to 0–30, sets tempo to 9 × RPM beats/minute (12 rpm gives 108 BPM);
+the arpeggio plays sixteenth notes and the kick plays each beat. Zero RPM stops
+new arpeggio notes and kicks; existing notes and delay tails decay naturally.
+The sustained wind/power-driven drone remains. Tempo changes preserve the
+remaining fraction of the rhythmic subdivision, so recovery from zero cannot
+strand the scheduler. Wind (0–15 m/s)
 opens a low-pass filter from 180 to 3,180 Hz and transposes the drone and
 arpeggio continuously by 0–1,200 cents (one octave), with a 0.8-second
 exponential glide time constant. Both share one pitch control, preserving their
@@ -94,8 +98,8 @@ refresh and 60-second stale policy above remain unchanged.
 
 The signal mixer applies `adjusted = measured × multiplier + offset` to the four
 validated inputs for both sound and visuals. Multipliers span 0–3×; offsets span
-±15 rpm, ±10 m/s, ±4,200 kW and ±180 degrees. Adjusted values clamp to 0–30 rpm,
-0–15 m/s and ±4,200 kW; vane angles wrap to ±180°. Each row shows measured and
+±15 rpm, ±10 m/s, −100–4,200 kW and ±180 degrees. Adjusted values clamp to 0–30 rpm,
+0–15 m/s and −100–4,200 kW; vane angles wrap to ±180°. Each row shows measured and
 adjusted values. A zero multiplier plus an offset holds a chosen artistic input
 while valid live data continues. It cannot bypass missing/stale data or pause.
 

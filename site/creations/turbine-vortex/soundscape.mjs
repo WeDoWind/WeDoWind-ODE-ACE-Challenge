@@ -5,7 +5,7 @@ export function soundTargets(reading) {
   const wind = clamp(reading.wind.value / 15, 0, 1);
   const power = clamp(reading.power.value / 4200, 0, 1);
   const angle = ((reading.direction.value + 180) % 360 + 360) % 360 - 180;
-  return { bpm: 72 + rpm * 3, cutoff: 180 + wind * 3000, pitchCents: wind * 1200,
+  return { bpm: rpm * 9, cutoff: 180 + wind * 3000, pitchCents: wind * 1200,
     intensity: .15 + Math.sqrt(power) * .65, pan: clamp(angle / 90, -.8, .8) };
 }
 
@@ -53,6 +53,11 @@ export class Soundscape {
     this.filter.frequency.setTargetAtTime(target.cutoff, t, .8);
     this.pan.pan.setTargetAtTime(target.pan, t, 2);
     this.drone.gain.setTargetAtTime(.04 + target.intensity * .08, t, .8);
+    // Zero RPM stops new rhythmic voices; existing notes/delay decay naturally.
+    if (target.bpm === 0) { this.next = null; this.step = 0; this.lastBpm = 0; return; }
+    // Preserve the fraction of the current subdivision when rotor speed changes.
+    if (this.lastBpm && this.next > t) this.next = t + (this.next - t) * this.lastBpm / target.bpm;
+    this.lastBpm = target.bpm;
     // Schedule only a short lookahead; inactive pages never accumulate a score.
     if (!this.next || this.next < t) this.next = t;
     while (this.next < t + .12) {
