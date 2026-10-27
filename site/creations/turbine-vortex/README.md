@@ -119,3 +119,9 @@ Wind mappings retain their original slope through 15 m/s and continue to 30 m/s;
 pitch, filter and travel no longer saturate at 15 m/s. Power offsets are separate
 from the adjusted power bounds: 4,200 kW × 1 − 4,200 kW gives 0 kW, while
 adjusted power still clamps at −100 to 4,200 kW.
+
+On wide screens, Read the wind sits to the left of the artwork and Explore the
+signals to the right. Both native details panels can collapse with pointer or
+keyboard, returning their width to the canvas. Open panels scroll independently.
+Below 1,200px they sit beneath the visual, side by side where space allows and
+stacked on phones. Both panels are hidden in Immerse.

@@ -63,6 +63,21 @@ def run():
         """)
         page.route('https://ace-api.duckdns.org/**', respond)
         page.goto(url)
+        guide = page.locator('.reading-guide')
+        mixer = page.locator('.signal-mixer')
+        art = page.locator('.artwork')
+        assert guide.bounding_box()['x'] < art.bounding_box()['x'] < mixer.bounding_box()['x']
+        original_width = art.bounding_box()['width']
+        guide.locator('summary').focus()
+        page.keyboard.press('Enter')
+        assert guide.get_attribute('open') is None
+        assert art.bounding_box()['width'] > original_width
+        guide.locator('summary').click()
+        mixer.locator('summary').click()
+        assert mixer.get_attribute('open') is None
+        assert art.bounding_box()['width'] > original_width
+        mixer.locator('summary').click()
+
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')")
         assert 'Clock difference' not in page.locator('#observed').inner_text()
         measured = page.locator('#wind').inner_text()
@@ -198,6 +213,8 @@ def run():
         assert all(b - a >= 1.9 for a, b in zip(requests, requests[1:])), 'Requests too close'
         page.locator('#fullscreen').click()
         page.wait_for_function('document.fullscreenElement !== null')
+        assert not guide.is_visible() and not mixer.is_visible(), 'Side panels visible in Immerse'
+
         assert page.locator('.artwork').evaluate('el => Math.abs(el.getBoundingClientRect().height - innerHeight) < 2')
         page.wait_for_function("document.querySelector('main').classList.contains('quiet')", timeout=10000)
         page.wait_for_function("getComputedStyle(document.querySelector('.controls')).opacity === '0'", timeout=5000)

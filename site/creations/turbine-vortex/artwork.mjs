@@ -28,7 +28,7 @@ for (const [key, spec] of Object.entries(MIXER_SIGNALS)) {
 function updateMixer() {
   const adjusted = adjustedReading();
   const active = mixActive(mix);
-  const message = active ? 'Exploration active · sound and visuals use adjusted values. Readings above remain measured.' : 'Original mapping · multipliers 1×, offsets 0';
+  const message = active ? 'Exploration active · sound and visuals use adjusted values. Readings below remain measured.' : 'Original mapping · multipliers 1×, offsets 0';
   if ($('mixer-status').textContent !== message) $('mixer-status').textContent = message;
   document.querySelector('main').classList.toggle('mixing', active);
   for (const [key, spec] of Object.entries(MIXER_SIGNALS)) {
