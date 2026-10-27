@@ -72,10 +72,13 @@ Sound is an artistic sonification, not a recording of the turbine.
 
 Rotor speed (rpm), clamped to 0–30, sets tempo to 72 + 3 × RPM beats/minute;
 the arpeggio plays sixteenth notes and the kick plays each beat. Wind (0–15 m/s)
-opens a low-pass filter from 180 to 3,180 Hz. Power (0–4,200 kW) increases drone
+opens a low-pass filter from 180 to 3,180 Hz and transposes the drone and
+arpeggio continuously by 0–1,200 cents (one octave), with a 0.8-second
+exponential glide time constant. Both share one pitch control, preserving their
+intervals; the kick stays low. Power (0–4,200 kW) increases drone
 and note intensity using a square-root curve; negative power maps to minimum
 intensity. Signed vane angle wraps to ±180° and pans left/right, capped at ±0.8.
-The fixed A-minor harmony is composed, not measured. Zero readings remain valid
+The A-minor pattern and its wind-driven transposition are artistic mappings. Zero readings remain valid
 and produce a restrained idle texture. Filter, gain and pan changes are smoothed;
 a master compressor limits peaks but volume remains the listener's choice.
 

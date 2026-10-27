@@ -5,7 +5,7 @@ export function soundTargets(reading) {
   const wind = clamp(reading.wind.value / 15, 0, 1);
   const power = clamp(reading.power.value / 4200, 0, 1);
   const angle = ((reading.direction.value + 180) % 360 + 360) % 360 - 180;
-  return { bpm: 72 + rpm * 3, cutoff: 180 + wind * 3000,
+  return { bpm: 72 + rpm * 3, cutoff: 180 + wind * 3000, pitchCents: wind * 1200,
     intensity: .15 + Math.sqrt(power) * .65, pan: clamp(angle / 90, -.8, .8) };
 }
 
@@ -16,6 +16,9 @@ export class Soundscape {
       const Audio = globalThis.AudioContext || globalThis.webkitAudioContext;
       if (!Audio) throw new Error('Web Audio is unavailable in this browser');
       const c = this.context = new Audio();
+      // One smoothed transposition keeps the drone and every arpeggio voice in tune.
+      this.pitch = c.createConstantSource(); this.pitch.offset.value = 0;
+      this.pitch.start();
       this.master = c.createGain(); this.master.gain.value = 0;
       const compressor = c.createDynamicsCompressor();
       compressor.threshold.value = -18; compressor.ratio.value = 6;
@@ -28,6 +31,7 @@ export class Soundscape {
       for (const [frequency, detune] of [[55, -5], [55, 5], [82.4069, 0]]) {
         const osc = c.createOscillator(); osc.type = 'sawtooth';
         osc.frequency.value = frequency; osc.detune.value = detune;
+        this.pitch.connect(osc.detune);
         osc.connect(this.drone); osc.start();
       }
       this.delay = c.createDelay(1); this.delay.delayTime.value = .32;
@@ -45,6 +49,7 @@ export class Soundscape {
     this.master.gain.setTargetAtTime(active ? this.volume : 0, t, .15);
     if (!active) { this.next = t; return; }
     const target = soundTargets(reading);
+    this.pitch.offset.setTargetAtTime(target.pitchCents, t, .8);
     this.filter.frequency.setTargetAtTime(target.cutoff, t, .8);
     this.pan.pan.setTargetAtTime(target.pan, t, 2);
     this.drone.gain.setTargetAtTime(.04 + target.intensity * .08, t, .8);
@@ -56,12 +61,13 @@ export class Soundscape {
       const osc = c.createOscillator(), envelope = c.createGain();
       osc.type = 'sawtooth';
       osc.frequency.value = 110 * 2 ** (notes[this.step % notes.length] / 12);
+      this.pitch.connect(osc.detune);
       envelope.gain.setValueAtTime(0, at);
       envelope.gain.linearRampToValueAtTime(.12 * target.intensity, at + .008);
       envelope.gain.exponentialRampToValueAtTime(.0001, at + .24);
       osc.connect(envelope); envelope.connect(this.filter); envelope.connect(this.delay);
       osc.start(at); osc.stop(at + .25);
-      osc.onended = () => { osc.disconnect(); envelope.disconnect(); };
+      osc.onended = () => { this.pitch.disconnect(osc.detune); osc.disconnect(); envelope.disconnect(); };
       if (this.step % 4 === 0) {
         const kick = c.createOscillator(), gain = c.createGain();
         kick.frequency.setValueAtTime(110, at);
