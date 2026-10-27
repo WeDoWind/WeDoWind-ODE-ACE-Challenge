@@ -53,10 +53,101 @@ def run():
                 data['series'][FIELDS[2]] = [None]
             route.fulfill(json=data)
 
+        page.add_init_script("""
+          window.audioContexts = []; window.rhythmVoices = 0;
+          const NativeAudio = window.AudioContext;
+          window.AudioContext = class extends NativeAudio {
+            constructor(...args) { super(...args); window.audioContexts.push(this); }
+            createOscillator() { window.rhythmVoices++; return super.createOscillator(); }
+          };
+        """)
         page.route('https://ace-api.duckdns.org/**', respond)
         page.goto(url)
+        guide = page.locator('.reading-guide')
+        mixer = page.locator('.signal-mixer')
+        art = page.locator('.artwork')
+        assert guide.bounding_box()['x'] < art.bounding_box()['x'] < mixer.bounding_box()['x']
+        original_width = art.bounding_box()['width']
+        guide.locator('summary').focus()
+        page.keyboard.press('Enter')
+        assert guide.get_attribute('open') is None
+        assert art.bounding_box()['width'] > original_width
+        guide.locator('summary').click()
+        mixer.locator('summary').click()
+        assert mixer.get_attribute('open') is None
+        assert art.bounding_box()['width'] > original_width
+        mixer.locator('summary').click()
+
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')")
         assert 'Clock difference' not in page.locator('#observed').inner_text()
+        measured = page.locator('#wind').inner_text()
+        observed = page.locator('#wind-time').get_attribute('datetime')
+        page.locator('#wind-multiplier').fill('2')
+        page.locator('#wind-offset').fill('1')
+        assert 'adjusted 10.6 m/s' in page.locator('#wind-mixed').inner_text()
+        assert page.locator('#wind').inner_text() == measured
+        assert page.locator('#wind-time').get_attribute('datetime') == observed
+        assert 'Exploration active' in page.locator('#mixer-status').inner_text()
+        page.locator('#wind-multiplier').focus()
+        page.keyboard.press('ArrowRight')
+        assert page.locator('#wind-multiplier').input_value() == '2.1'
+        page.locator('#rpm-multiplier').fill('0')
+        page.locator('#rpm-offset').fill('15')
+        assert 'adjusted 15.0 rpm' in page.locator('#rpm-mixed').inner_text()
+        page.locator('#mixer-reset').click()
+        assert 'Original mapping' in page.locator('#mixer-status').inner_text()
+        assert page.locator('#wind-multiplier').input_value() == '1'
+        assert page.locator('#wind-offset').input_value() == '0'
+
+        assert page.evaluate('audioContexts.length') == 0, 'Audio must be opt in'
+        page.locator('#sound-toggle').click()
+        page.wait_for_function("document.querySelector('#sound-status').textContent.startsWith('Sound live')")
+        assert page.evaluate('audioContexts[0].state') == 'running'
+        page.locator('#rpm-multiplier').fill('0')
+        page.wait_for_timeout(400)
+        stopped_voices = page.evaluate('rhythmVoices')
+        page.wait_for_timeout(600)
+        assert page.evaluate('rhythmVoices') == stopped_voices, 'Zero RPM scheduled a pulse'
+        page.locator('#rpm-offset').fill('12')
+        page.wait_for_timeout(800)
+        assert page.evaluate('rhythmVoices') > stopped_voices, 'Pulse did not restart'
+        assert page.locator('#power-offset').get_attribute('min') == '-4200'
+        assert page.locator('#power-offset').get_attribute('max') == '4200'
+        page.locator('#power-multiplier').fill('0')
+        page.locator('#power-offset').fill('-100')
+        assert 'adjusted -100.0 kW' in page.locator('#power-mixed').inner_text()
+        page.locator('#power-multiplier').fill('1')
+        page.locator('#power-offset').fill('-4200')
+        assert 'adjusted -100.0 kW' in page.locator('#power-mixed').inner_text()
+        page.locator('#wind-multiplier').fill('0')
+        page.locator('#wind-offset').fill('30')
+        assert 'adjusted 30.0 m/s' in page.locator('#wind-mixed').inner_text()
+        assert page.locator('#wind-marker').evaluate("el => el.style.left") == '100%'
+
+        page.locator('#mixer-reset').click()
+
+        page.wait_for_timeout(700)
+        page.locator('#pause').click()
+        assert 'Sound resting' in page.locator('#sound-status').inner_text()
+        page.locator('#pause').click()
+        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_function("audioContexts[0].state === 'suspended'")
+        assert 'Sound resting' in page.locator('#sound-status').inner_text()
+        page.evaluate("delete document.hidden; document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_function("audioContexts[0].state === 'running'")
+        page.locator('#sound-volume').fill('0')
+        page.locator('#sound-toggle').click()
+        assert 'Sound off' in page.locator('#sound-status').inner_text()
+        page.locator('#sound-toggle').click()
+        assert page.evaluate('audioContexts.length') == 1, 'Reuse the audio graph'
+        state['mode'] = 'invalid'
+        page.wait_for_function("document.querySelector('#status').textContent.startsWith('Unavailable')")
+        assert 'Sound resting' in page.locator('#sound-status').inner_text()
+        state['mode'] = 'valid'
+        page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=15000)
+        assert 'Sound live' in page.locator('#sound-status').inner_text()
+        page.locator('#sound-toggle').click()
+
         page.wait_for_function("document.querySelector('#observed').textContent.startsWith('Visible history')")
         state['mode'] = 'valid'
         page.reload()
@@ -122,6 +213,8 @@ def run():
         assert all(b - a >= 1.9 for a, b in zip(requests, requests[1:])), 'Requests too close'
         page.locator('#fullscreen').click()
         page.wait_for_function('document.fullscreenElement !== null')
+        assert not guide.is_visible() and not mixer.is_visible(), 'Side panels visible in Immerse'
+
         assert page.locator('.artwork').evaluate('el => Math.abs(el.getBoundingClientRect().height - innerHeight) < 2')
         page.wait_for_function("document.querySelector('main').classList.contains('quiet')", timeout=10000)
         page.wait_for_function("getComputedStyle(document.querySelector('.controls')).opacity === '0'", timeout=5000)
