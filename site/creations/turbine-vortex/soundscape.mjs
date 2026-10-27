@@ -2,7 +2,7 @@
 const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 export function soundTargets(reading) {
   const rpm = clamp(reading.rpm.value, 0, 30);
-  const wind = clamp(reading.wind.value / 15, 0, 1);
+  const wind = clamp(reading.wind.value / 15, 0, 2);
   const power = clamp(reading.power.value / 4200, 0, 1);
   const angle = ((reading.direction.value + 180) % 360 + 360) % 360 - 180;
   return { bpm: rpm * 9, cutoff: 180 + wind * 3000, pitchCents: wind * 1200,

@@ -32,10 +32,21 @@ test('offset holds, zero, signed power, bounds and wrapping remain well-defined'
   assert.equal(result.rpm.value, 15); assert.equal(result.wind.value, 0);
   assert.equal(result.power.value, -100); assert.equal(result.direction.value, -150);
   mix.wind = { multiplier: 3, offset: 10 };
-  assert.equal(mixReading(measured, mix).wind.value, 15);
+  assert.equal(mixReading(measured, mix).wind.value, 30);
   assert.equal(mixReading(null, mix), null);
   mix.power.offset = -4200;
   assert.equal(mixReading(measured, mix).power.value, -100);
   mix.power.offset = 10000;
   assert.equal(mixReading(measured, mix).power.value, 4200);
+});
+
+test('full-power offset can reach zero and wind above 15 still changes both outputs', () => {
+  const measured = { rpm:{value:12}, wind:{value:15}, power:{value:4200}, direction:{value:0} };
+  const mix = defaultMix(); mix.power.offset = -4200; mix.wind.multiplier = 2;
+  const adjusted = mixReading(measured, mix);
+  assert.equal(adjusted.power.value, 0);
+  assert.equal(adjusted.wind.value, 30);
+  assert.ok(soundTargets(adjusted).pitchCents > soundTargets(measured).pitchCents);
+  assert.ok(soundTargets(adjusted).cutoff > soundTargets(measured).cutoff);
+  assert.ok(visualTargets(adjusted).wind > visualTargets(measured).wind);
 });

@@ -14,7 +14,7 @@ export function artworkHue(power, colourLevel, dynamic = false) {
 }
 
 export function visualTargets(reading, powerDetail = .5, powerMean = reading.power.value, windChange = 0) {
-  const wind = clamp(reading.wind.value / 15);
+  const wind = clamp(reading.wind.value / 15, 0, 2);
   const power = clamp(reading.power.value / 4200);
   const powerChange = clamp((reading.power.value - powerMean) / Math.max(25, Math.abs(powerMean) * .05), -1, 1);
   return { rpm: clamp(reading.rpm.value, 0, 30), wind, power,

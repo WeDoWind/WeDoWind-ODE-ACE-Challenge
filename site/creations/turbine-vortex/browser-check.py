@@ -96,11 +96,19 @@ def run():
         page.locator('#rpm-offset').fill('12')
         page.wait_for_timeout(800)
         assert page.evaluate('rhythmVoices') > stopped_voices, 'Pulse did not restart'
-        assert page.locator('#power-offset').get_attribute('min') == '-100'
+        assert page.locator('#power-offset').get_attribute('min') == '-4200'
         assert page.locator('#power-offset').get_attribute('max') == '4200'
         page.locator('#power-multiplier').fill('0')
         page.locator('#power-offset').fill('-100')
         assert 'adjusted -100.0 kW' in page.locator('#power-mixed').inner_text()
+        page.locator('#power-multiplier').fill('1')
+        page.locator('#power-offset').fill('-4200')
+        assert 'adjusted -100.0 kW' in page.locator('#power-mixed').inner_text()
+        page.locator('#wind-multiplier').fill('0')
+        page.locator('#wind-offset').fill('30')
+        assert 'adjusted 30.0 m/s' in page.locator('#wind-mixed').inner_text()
+        assert page.locator('#wind-marker').evaluate("el => el.style.left") == '100%'
+
         page.locator('#mixer-reset').click()
 
         page.wait_for_timeout(700)

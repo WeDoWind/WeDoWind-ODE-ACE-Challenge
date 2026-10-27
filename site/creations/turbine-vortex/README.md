@@ -25,7 +25,7 @@ Docs, OpenAPI, `/v1/sites`, `/v1/sites/ace/assets`, `/v1/families` and a live co
 ## Visual mapping
 
 - **Rotor speed:** three trails 120° apart share the walls' retained phase. Angular velocity is `clamp(RPM,0,30) × 2π/60`, eased over 2.5 seconds: steady 12 RPM gives one turn per five seconds. The rotor graphic is hidden. A separate whole-scene roll adds 0.025 radians/second (one turn in about 4 minutes 11 seconds); apparent screen rotation includes both.
-- **Wind speed:** `clamp(wind/15)` controls travel at `0.4 + 1.2 × level` depth units/second and light-wave spacing. Fifteen m/s is an artistic ceiling. Changes between distinct observations, divided by elapsed data seconds, drive roughness through `sqrt(clamp(abs(change)/0.5))`, eased over 1.2 seconds. Duplicate observations are ignored; gaps over 60 seconds reset the derivative. Roughness blends circles into irregular 12-sided polygons, amplified by 1.4 and capped at 1, with vertex displacement up to 16% of radius. Deformation grows downstream, leaving trail origins exact. Steady wind gradually replaces rough layers with smooth ones.
+- **Wind speed:** `clamp(wind/15,0,2)` controls travel at `0.4 + 1.2 × level` depth units/second and light-wave spacing. Thirty m/s is an artistic ceiling; travel reaches 2.8 depth units/second. Changes between distinct observations, divided by elapsed data seconds, drive roughness through `sqrt(clamp(abs(change)/0.5))`, eased over 1.2 seconds. Duplicate observations are ignored; gaps over 60 seconds reset the derivative. Roughness blends circles into irregular 12-sided polygons, amplified by 1.4 and capped at 1, with vertex displacement up to 16% of radius. Deformation grows downstream, leaving trail origins exact. Steady wind gradually replaces rough layers with smooth ones.
 - **Power:** fixed colour uses `sqrt(clamp(power/4200))`, from violet through cyan to gold. The API introduction documents nominal power of 4,200 kW. Signed power remains visible; negative values map to the zero-generation colour. A five-minute 10th–90th percentile range, minimum span 250 kW and 30-second adaptation constant, adds at most ±6° of ring hue detail. Fixed colour and power targets ease over 2.5 seconds. Higher absolute power also increases streak density. Dynamic colour is optional, described below.
 - **Brightness:** a time-weighted trailing 30-second power mean uses distinct observation timestamps and piecewise-constant readings. The current sample initially contributes zero duration. Brightness is `0.5 + 0.35 × clamp((power-mean)/max(25 kW,abs(mean)×0.05),-1,1)`, eased over 0.6 seconds. Above-average power brightens, below-average dims; the mean is neutral. Gaps over 60 seconds reset the mean. It drives the artwork internally without a separate numerical readout.
 - **Direction:** signed vane angles use shortest-arc easing over eight seconds. The artistic heading is `clamp(4 × angle,-120°,120°)`. At depth `d=z/18`, bend strength is `4d(1-d)`; horizontal displacement uses `sin(heading)`, vertical uses `1-cos(heading)`, then both follow the whole-scene roll. The origin stays centred and a zero angle gives no bend. These are screen coordinates, not compass bearings.
@@ -75,9 +75,9 @@ the arpeggio plays sixteenth notes and the kick plays each beat. Zero RPM stops
 new arpeggio notes and kicks; existing notes and delay tails decay naturally.
 The sustained wind/power-driven drone remains. Tempo changes preserve the
 remaining fraction of the rhythmic subdivision, so recovery from zero cannot
-strand the scheduler. Wind (0–15 m/s)
-opens a low-pass filter from 180 to 3,180 Hz and transposes the drone and
-arpeggio continuously by 0–1,200 cents (one octave), with a 0.8-second
+strand the scheduler. Wind (0–30 m/s)
+opens a low-pass filter from 180 to 6,180 Hz and transposes the drone and
+arpeggio continuously by 0–2,400 cents (two octaves), with a 0.8-second
 exponential glide time constant. Both share one pitch control, preserving their
 intervals; the kick stays low. Power (0–4,200 kW) increases drone
 and note intensity using a square-root curve; negative power maps to minimum
@@ -98,8 +98,8 @@ refresh and 60-second stale policy above remain unchanged.
 
 The signal mixer applies `adjusted = measured × multiplier + offset` to the four
 validated inputs for both sound and visuals. Multipliers span 0–3×; offsets span
-±15 rpm, ±10 m/s, −100–4,200 kW and ±180 degrees. Adjusted values clamp to 0–30 rpm,
-0–15 m/s and −100–4,200 kW; vane angles wrap to ±180°. Each row shows measured and
+±15 rpm, ±30 m/s, ±4,200 kW and ±180 degrees. Adjusted values clamp to 0–30 rpm,
+0–30 m/s and −100–4,200 kW; vane angles wrap to ±180°. Each row shows measured and
 adjusted values. A zero multiplier plus an offset holds a chosen artistic input
 while valid live data continues. It cannot bypass missing/stale data or pause.
 
@@ -114,3 +114,8 @@ older layers keep their previous shape. This is a creative exploration, not a
 prediction of turbine behaviour. Reset all signals restores 1× and zero offsets;
 reload also resets them. No settings are saved and no additional API calls occur.
 The mixer is available outside Immerse; exit immersion to adjust it.
+
+Wind mappings retain their original slope through 15 m/s and continue to 30 m/s;
+pitch, filter and travel no longer saturate at 15 m/s. Power offsets are separate
+from the adjusted power bounds: 4,200 kW × 1 − 4,200 kW gives 0 kW, while
+adjusted power still clamps at −100 to 4,200 kW.

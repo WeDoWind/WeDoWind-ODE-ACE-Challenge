@@ -179,7 +179,7 @@ function updateColourScale() {
   const adjusted = adjustedReading();
   if (adjusted) {
     $('power-marker').style.left = `${100 * (dynamicColour ? colourRange.normalize(adjusted.power.value) : Math.sqrt(Math.max(0, Math.min(1, adjusted.power.value / 4200))))}%`;
-    $('wind-marker').style.left = `${adjusted.wind.value / 15 * 100}%`;
+    $('wind-marker').style.left = `${adjusted.wind.value / 30 * 100}%`;
   }
 }
 $('colour-toggle').addEventListener('click', () => {
