@@ -1,8 +1,30 @@
+import { Soundscape } from './soundscape.mjs';
 import { TunnelRenderer } from './tunnel.mjs';
 import { createAcePoller } from './ace-live.mjs';
 import { ENDPOINT, AdaptiveRange, parseSignals, angleDifference, visualTargets, SignalFreshness, PowerAverage, WindChanges } from './signals.mjs';
 
 const $ = id => document.getElementById(id);
+const sound = new Soundscape();
+let soundEnabled = false;
+function updateSound() {
+  const active = soundEnabled && !resting && !paused && !document.hidden;
+  sound.update(reading, active);
+  const message = soundEnabled ? active ? 'Sound live · RPM pulse / wind filter / power harmonics / vane stereo' : 'Sound resting · waiting for fresh data, visible page and running motion' : 'Sound off · opt in to the turbine soundscape';
+  if ($('sound-status').textContent !== message) $('sound-status').textContent = message;
+}
+$('sound-toggle').addEventListener('click', async () => {
+  $('sound-toggle').disabled = true;
+  try {
+    if (!soundEnabled) await sound.start();
+    soundEnabled = !soundEnabled;
+    $('sound-toggle').textContent = soundEnabled ? 'Mute sound' : 'Enable sound';
+    $('sound-toggle').setAttribute('aria-pressed', String(soundEnabled));
+    updateSound();
+  } catch (error) { $('sound-status').textContent = `Sound unavailable: ${error.message}`; }
+  finally { $('sound-toggle').disabled = false; }
+});
+$('sound-volume').addEventListener('input', event => { sound.volume = Number(event.target.value) / 100; updateSound(); });
+setInterval(updateSound, 50);
 const canvas = $('vortex'), tunnel = new TunnelRenderer(canvas);
 const powerRange = new AdaptiveRange(250);
 const colourRange = new AdaptiveRange(25);
@@ -25,6 +47,7 @@ function updateStatus() {
   const nextResting = unavailable || !reading || stale;
   if (nextResting !== resting) forceDraw = true;
   resting = nextResting;
+  updateSound();
   document.querySelector('main').classList.toggle('data-resting', !!resting);
   const status = $('status');
   status.dataset.state = unavailable ? 'error' : stale ? 'stale' : 'fresh';
@@ -147,11 +170,11 @@ document.addEventListener('keydown', revealChrome);
 document.addEventListener('focusin', revealChrome);
 document.addEventListener('visibilitychange', () => {
   cancelAnimationFrame(frame); previous = 0;
-  if (document.hidden) poller.stop();
-  else { updateStatus(); poller.start(); frame = requestAnimationFrame(animate); }
+  if (document.hidden) { poller.stop(); updateSound(); sound.suspend(); }
+  else { if (soundEnabled) sound.start().catch(() => { soundEnabled = false; updateSound(); }); updateStatus(); poller.start(); frame = requestAnimationFrame(animate); }
 });
-addEventListener('pagehide', () => { poller.stop(); cancelAnimationFrame(frame); });
-addEventListener('pageshow', event => { if (event.persisted && !document.hidden) { poller.start(); cancelAnimationFrame(frame); previous = 0; frame = requestAnimationFrame(animate); } });
+addEventListener('pagehide', () => { sound.update(reading, false); sound.suspend(); poller.stop(); cancelAnimationFrame(frame); });
+addEventListener('pageshow', event => { if (event.persisted && !document.hidden) { if (soundEnabled) sound.start().catch(() => {}); poller.start(); cancelAnimationFrame(frame); previous = 0; frame = requestAnimationFrame(animate); } });
 new ResizeObserver(resize).observe(canvas);
 setInterval(updateStatus, 1000); // Labels only; no API traffic.
 updateStatus(); if (!document.hidden) { poller.start(); frame = requestAnimationFrame(animate); }

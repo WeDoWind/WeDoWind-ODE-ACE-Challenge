@@ -53,10 +53,43 @@ def run():
                 data['series'][FIELDS[2]] = [None]
             route.fulfill(json=data)
 
+        page.add_init_script("""
+          window.audioContexts = [];
+          const NativeAudio = window.AudioContext;
+          window.AudioContext = class extends NativeAudio {
+            constructor(...args) { super(...args); window.audioContexts.push(this); }
+          };
+        """)
         page.route('https://ace-api.duckdns.org/**', respond)
         page.goto(url)
         page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')")
         assert 'Clock difference' not in page.locator('#observed').inner_text()
+        assert page.evaluate('audioContexts.length') == 0, 'Audio must be opt in'
+        page.locator('#sound-toggle').click()
+        page.wait_for_function("document.querySelector('#sound-status').textContent.startsWith('Sound live')")
+        assert page.evaluate('audioContexts[0].state') == 'running'
+        page.wait_for_timeout(700)
+        page.locator('#pause').click()
+        assert 'Sound resting' in page.locator('#sound-status').inner_text()
+        page.locator('#pause').click()
+        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_function("audioContexts[0].state === 'suspended'")
+        assert 'Sound resting' in page.locator('#sound-status').inner_text()
+        page.evaluate("delete document.hidden; document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_function("audioContexts[0].state === 'running'")
+        page.locator('#sound-volume').fill('0')
+        page.locator('#sound-toggle').click()
+        assert 'Sound off' in page.locator('#sound-status').inner_text()
+        page.locator('#sound-toggle').click()
+        assert page.evaluate('audioContexts.length') == 1, 'Reuse the audio graph'
+        state['mode'] = 'invalid'
+        page.wait_for_function("document.querySelector('#status').textContent.startsWith('Unavailable')")
+        assert 'Sound resting' in page.locator('#sound-status').inner_text()
+        state['mode'] = 'valid'
+        page.wait_for_function("document.querySelector('#status').textContent.startsWith('Live')", timeout=15000)
+        assert 'Sound live' in page.locator('#sound-status').inner_text()
+        page.locator('#sound-toggle').click()
+
         page.wait_for_function("document.querySelector('#observed').textContent.startsWith('Visible history')")
         state['mode'] = 'valid'
         page.reload()

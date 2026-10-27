@@ -62,3 +62,27 @@ Tests cover parsing/quality, monotonic freshness, time-weighted power means, ada
 ## Optional dynamic colour
 
 The Dynamic colour button switches between the default fixed 0–4,200 kW palette and a more expressive recent-power palette. Dynamic mode uses a separate five-minute buffer of distinct valid power observations (maximum 512), a smoothed 10th–90th percentile range, a 25 kW minimum span and a 30-second adaptation constant. The minimum span prevents tiny noise from filling the palette. Recent-range endpoints are visible beside the controls and on the legend; they may extend below zero at low generation. Actual readings remain unchanged. The dynamic colour position eases over 1.2 seconds, then travels with its historical layer, so past colour differences persist. Fixed and dynamic colour meanings are different; the current mode is always labelled. The toggle clears old pixel afterimages and redraws retained geometry, including while paused, without starting motion or making an API request. Reloading returns to fixed mode. No new API traffic or persistent storage is added.
+
+## Optional turbine soundscape
+
+Choose **Enable sound** to start an original Web Audio electro-mechanical drone,
+minor arpeggio, delay and four-on-the-floor pulse. Volume starts at 25%; use the
+labelled slider or **Mute sound**. No samples, downloads or dependencies are used.
+Sound is an artistic sonification, not a recording of the turbine.
+
+Rotor speed (rpm), clamped to 0–30, sets tempo to 72 + 3 × RPM beats/minute;
+the arpeggio plays sixteenth notes and the kick plays each beat. Wind (0–15 m/s)
+opens a low-pass filter from 180 to 3,180 Hz. Power (0–4,200 kW) increases drone
+and note intensity using a square-root curve; negative power maps to minimum
+intensity. Signed vane angle wraps to ±180° and pans left/right, capped at ±0.8.
+The fixed A-minor harmony is composed, not measured. Zero readings remain valid
+and produce a restrained idle texture. Filter, gain and pan changes are smoothed;
+a master compressor limits peaks but volume remains the listener's choice.
+
+Sound uses the existing validated four-field reading and shared poller, with no
+additional API traffic. It fades out on pause, stale or invalid data and mute.
+Hidden/closed pages suspend audio; a visible page resumes only previously enabled
+sound. Browser interruptions may require another click on Enable sound. Reloading
+resets sound to off. Current API docs, OpenAPI, sites/assets and instantaneous
+field catalogue were rechecked on **27 October 2026**; endpoint, units, two-second
+refresh and 60-second stale policy above remain unchanged.

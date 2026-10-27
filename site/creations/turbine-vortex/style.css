@@ -344,3 +344,8 @@ main:fullscreen .art-caption { display:none; }
 .colour-scale-status { font-size:11px; line-height:1.6; color:#a8b9c5; margin:12px 0 0; }
 #colour-toggle[aria-pressed="true"] { background:#263a46; border-color:#9fc8d6; }
 .power-labels [hidden] { display:none; }
+
+.sound-volume { display: inline-flex; align-items: center; gap: .5rem; font-size: .85rem; }
+.sound-volume input { width: 90px; accent-color: #65e7ed; }
+#sound-status { font-size: .8rem; max-width: 42rem; }
+.sound-volume input:focus-visible { outline: 2px solid #65e7ed; outline-offset: 4px; }
